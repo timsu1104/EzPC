@@ -29,6 +29,7 @@ Modified by Deevashwer Rathee
 #define EMP_HALFGATE_GEN_H__
 #include "GC/circuit_execution.h"
 #include "GC/mitccrh.h"
+#include "GC/utils.h"
 #include "utils/utils.h"
 #include <iostream>
 namespace sci {
@@ -63,8 +64,11 @@ public:
   block128 public_label(bool b) override { return constant[b]; }
   block128 and_gate(const block128 &a, const block128 &b) override {
     block128 table[2];
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
     block128 res =
         halfgates_garble(a, a ^ delta, b, b ^ delta, delta, table, &mitccrh);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    total_time += getMillies(time_start, time_end);
     io->send_block(table, 2);
     return res;
   }

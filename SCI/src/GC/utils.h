@@ -43,5 +43,12 @@ inline void block_to_bool(bool *data, block128 b) {
   int_to_bool<uint64_t>(data + 64, ptr[1], 64);
 }
 
+inline double getMillies(timespec timestart, timespec timeend) {
+	long time1 = (timestart.tv_sec * 1000000) + (timestart.tv_nsec / 1000);
+	long time2 = (timeend.tv_sec * 1000000) + (timeend.tv_nsec / 1000);
+
+	return (double) (time2 - time1) / 1000;
+}
+
 } // namespace sci
 #endif // GC_UTILS_H__

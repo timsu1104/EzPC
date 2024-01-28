@@ -29,6 +29,7 @@ SOFTWARE.
 #include <fstream>
 #include <tuple>
 #include <map>
+#include <cstdint>
 
 using namespace std ;
 

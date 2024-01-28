@@ -6,6 +6,8 @@
 #include "GC/integer.h"
 #include "GC/number.h"
 #include "GC/swappable.h"
+#include "GC/orcompact.h"
+#include "GC/deduplicate.h"
 
 #include "GC/aes_opt.h"
 #include "GC/f2k.h"

@@ -1,7 +1,9 @@
 add_library(SCI-GC
     emp-tool.cpp
     halfgate_gen.cpp
-    halfgate_eva.cpp)
+    halfgate_eva.cpp
+    orcompact.cpp
+    deduplicate.cpp)
 target_link_libraries(SCI-GC
     PUBLIC SCI-utils SCI-OT
 )

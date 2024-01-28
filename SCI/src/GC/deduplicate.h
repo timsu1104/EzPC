@@ -25,47 +25,24 @@ Enquiries about further applications and development opportunities are welcome.
 Modified by Deevashwer Rathee
 */
 
-#ifndef EMP_HALFGATE_EVA_H__
-#define EMP_HALFGATE_EVA_H__
-#include "GC/circuit_execution.h"
-#include "GC/mitccrh.h"
-#include "GC/utils.h"
-#include "utils/utils.h"
+#ifndef EMP_DEDUPLICATE_H__
+#define EMP_DEDUPLICATE_H__
+#include "GC/bit.h"
+#include "GC/integer.h"
+#include "GC/number.h"
+#include "GC/orcompact.h"
 #include <iostream>
+#include <fmt/core.h>
+
 namespace sci {
 
-block128 halfgates_eval(block128 A, block128 B, const block128 *table,
-                        MITCCRH<8> *mitccrh);
+inline bool is_power_of_2(int x) {
+    return (x & (x-1)) == 0;
+}
 
-template <typename T> class HalfGateEva : public CircuitExecution {
-public:
-  T *io;
-  block128 constant[2];
-  MITCCRH<8> mitccrh;
-  HalfGateEva(T *io) : io(io) {
-    set_delta();
-    block128 tmp;
-    io->recv_block(&tmp, 1);
-    mitccrh.setS(tmp);
-  }
-  void set_delta() { io->recv_block(constant, 2); }
-  block128 public_label(bool b) override { return constant[b]; }
-  block128 and_gate(const block128 &a, const block128 &b) override {
-    block128 table[2];
-    io->recv_block(table, 2);
-    clock_gettime(CLOCK_MONOTONIC, &time_start);
-    auto res = halfgates_eval(a, b, table, &mitccrh);
-    clock_gettime(CLOCK_MONOTONIC, &time_end);
-    total_time += getMillies(time_start, time_end);
-    return res;
-  }
-  block128 xor_gate(const block128 &a, const block128 &b) override {
-    return a ^ b;
-  }
-  block128 not_gate(const block128 &a) override {
-    return xor_gate(a, public_label(true));
-  }
-  size_t num_and() override { return mitccrh.gid; }
-};
+Integer* deduplicate(Integer* in, int B, int N, int bitlength);
+
+Integer* remap(Integer* in, Integer* inDeduplicated, Integer* resp, int B, int N, int bitlength, Integer* constantArray);
+
 } // namespace sci
-#endif // HALFGATE_EVA_H__
+#endif

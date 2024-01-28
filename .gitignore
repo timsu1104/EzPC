@@ -17,3 +17,5 @@ SEAL
 *.dot
 *.csv
 *.out
+
+**/.cache/

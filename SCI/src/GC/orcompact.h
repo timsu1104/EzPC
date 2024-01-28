@@ -25,47 +25,45 @@ Enquiries about further applications and development opportunities are welcome.
 Modified by Deevashwer Rathee
 */
 
-#ifndef EMP_HALFGATE_EVA_H__
-#define EMP_HALFGATE_EVA_H__
-#include "GC/circuit_execution.h"
-#include "GC/mitccrh.h"
-#include "GC/utils.h"
-#include "utils/utils.h"
+#ifndef EMP_COMPACT_H__
+#define EMP_COMPACT_H__
+#include "GC/bit.h"
+#include "GC/integer.h"
+#include "GC/number.h"
 #include <iostream>
+#include <fmt/core.h>
+
 namespace sci {
 
-block128 halfgates_eval(block128 A, block128 B, const block128 *table,
-                        MITCCRH<8> *mitccrh);
+inline int getLogOf(int x) {
+  int log = 0;
+  x >>= 1;
+  while (x) {
+      log++;
+      x >>= 1;
+  }
+  return log;
+}
 
-template <typename T> class HalfGateEva : public CircuitExecution {
-public:
-  T *io;
-  block128 constant[2];
-  MITCCRH<8> mitccrh;
-  HalfGateEva(T *io) : io(io) {
-    set_delta();
-    block128 tmp;
-    io->recv_block(&tmp, 1);
-    mitccrh.setS(tmp);
+inline Integer mod(Integer x, int len, Bit& zero) {
+  for (int i=len; i < x.size()-1; i++) {
+    x[i] = zero;
   }
-  void set_delta() { io->recv_block(constant, 2); }
-  block128 public_label(bool b) override { return constant[b]; }
-  block128 and_gate(const block128 &a, const block128 &b) override {
-    block128 table[2];
-    io->recv_block(table, 2);
-    clock_gettime(CLOCK_MONOTONIC, &time_start);
-    auto res = halfgates_eval(a, b, table, &mitccrh);
-    clock_gettime(CLOCK_MONOTONIC, &time_end);
-    total_time += getMillies(time_start, time_end);
-    return res;
+  return x;
+}
+
+inline Integer* getConstantArray(int n, int bitlen) {
+  Integer* constantArray = new Integer[n];
+  for (int i = 0; i < n; i++) {
+    constantArray[i] = Integer(bitlen, i);
   }
-  block128 xor_gate(const block128 &a, const block128 &b) override {
-    return a ^ b;
-  }
-  block128 not_gate(const block128 &a) override {
-    return xor_gate(a, public_label(true));
-  }
-  size_t num_and() override { return mitccrh.gid; }
-};
+  return constantArray;
+}
+
+void OROffCompact(Bit* label, std::vector<Integer*> data, Integer* prefixSum, Integer& z, int n, int bitlen, Integer* constant);
+
+void ORCompact(Bit* label, std::vector<Integer*> data, int n, int bitlen, Integer* constant);
+
+
 } // namespace sci
-#endif // HALFGATE_EVA_H__
+#endif

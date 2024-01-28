@@ -45,6 +45,8 @@ public:
           static __thread CircuitExecution * circ_exec;
   #endif
   */
+  double total_time = 0;
+  timespec time_start, time_end;
   virtual block128 and_gate(const block128 &in1, const block128 &in2) = 0;
   virtual block128 xor_gate(const block128 &in1, const block128 &in2) = 0;
   virtual block128 not_gate(const block128 &in1) = 0;
