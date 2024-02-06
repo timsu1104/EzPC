@@ -49,6 +49,20 @@ inline int greatestPowerOfTwoLessThan(int n) {
   return k >> 1;
 }
 
+inline bool is_power_of_2(int x) {
+    return (x & (x-1)) == 0;
+}
+
+inline int getLogOf(int x) {
+  int log = 0;
+  x >>= 1;
+  while (x) {
+      log++;
+      x >>= 1;
+  }
+  return log;
+}
+
 template <typename T, typename D>
 void bitonic_merge(T *key, T *subkey, std::vector<D*> data, int lo, int n, Bit acc) {
   if (n > 1) {

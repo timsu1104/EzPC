@@ -41,14 +41,10 @@ void test_swap() {
 }
 
 int main(int argc, char **argv) {
-	auto program_start = high_resolution_clock::now();
 	party = atoi(argv[1]);
 	io_gc = new NetIO(party == ALICE ? nullptr : "127.0.0.1",
 						port + GC_PORT_OFFSET, true);
 
 	setup_semi_honest(io_gc, party);
 	test_swap();
-	auto program_end = high_resolution_clock::now();
-	auto program_span = std::chrono::duration_cast<std::chrono::duration<double>>(program_end - program_start).count();
-	cout << "Total time: elapsed " << program_span * 1000 << " ms." << endl;
 }

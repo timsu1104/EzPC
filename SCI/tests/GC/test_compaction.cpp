@@ -10,18 +10,18 @@
 using namespace sci;
 using std::cout, std::endl;
 
-int party, port = 8000, size = 512;
+int party, port = 8000, batch_size = 512;
 int bitlength = 32;
 NetIO *io_gc;
 
 void test_compaction() {
-	Bit *label = new Bit[size];
-	Integer *B = new Integer[size];
+	Bit *label = new Bit[batch_size];
+	Integer *B = new Integer[batch_size];
 
-	int* in = new int[size];
-	bool* labelvec = new bool[size];
-	for (int i = 0, m = size >> 1; i < size; ++i) {
-		if (rand() % (size - i) < m) {
+	int* in = new int[batch_size];
+	bool* labelvec = new bool[batch_size];
+	for (int i = 0, m = batch_size >> 1; i < batch_size; ++i) {
+		if (rand() % (batch_size - i) < m) {
 			labelvec[i] = 1;
 			m--;
 		} else {
@@ -30,26 +30,27 @@ void test_compaction() {
 	}
 
 // First specify Alice's input
-	for(int i = 0; i < size; ++i) {
+	for(int i = 0; i < batch_size; ++i) {
 		label[i] = Bit(labelvec[i], ALICE);
 	}
 
 // Now specify Bob's input
-	for(int i = 0; i < size; ++i) {
+	for(int i = 0; i < batch_size; ++i) {
 		in[i] = rand()%(1ULL << 20);
 		B[i] = Integer(32, in[i], BOB);
 	}
 	
     auto comm_start = io_gc->counter;
+    auto round_start = io_gc->num_rounds;
 	auto time_start = high_resolution_clock::now();
 	
-	auto constantArray = getConstantArray(size, bitlength);
-	ORCompact(label, std::vector{B}, size, bitlength, constantArray);
+	auto constantArray = getConstantArray(batch_size, bitlength);
+	ORCompact(label, std::vector{B}, batch_size, bitlength, constantArray);
 
 	auto time_end = high_resolution_clock::now();
 	auto time_span = std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count();
-    cout << "elapsed " << time_span * 1000 << " ms." << endl;
-    cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
+	cout << fmt::format("elapsed {} ms. ", time_span * 1000) << endl;
+	cout << fmt::format("sent {} MB with {} rounds. ", (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)), (io_gc->num_rounds - round_start)) << endl;
 
 	// cout << "in: ";
 	// for(int i = 0; i < size; ++i)
@@ -66,10 +67,10 @@ void test_compaction() {
 
 	// Verify
 	std::multiset<int32_t> s;
-	for(int i = 0; i < size / 2; ++i) {
+	for(int i = 0; i < batch_size / 2; ++i) {
 		s.insert(B[i].reveal<int32_t>());
 	}
-	for(int i = 0; i < size; ++i) {
+	for(int i = 0; i < batch_size; ++i) {
 		if (labelvec[i]) {
 			if (!s.count(in[i])) {
 				error(fmt::format("{} does not exist!", in[i]).c_str());
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
   ArgMapping amap;
   amap.arg("r", party, "Role of party: ALICE = 1; BOB = 2");
   amap.arg("p", port, "Port Number");
-  amap.arg("s", size, "number of total elements");
+  amap.arg("s", batch_size, "number of total elements");
   amap.arg("l", bitlength, "bitlength of inputs");
   amap.parse(argc, argv);
   io_gc = new NetIO(party == ALICE ? nullptr : "127.0.0.1",

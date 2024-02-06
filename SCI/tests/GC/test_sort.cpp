@@ -44,9 +44,9 @@ void test_sort() {
 	auto time_span = std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count();
     cout << "elapsed " << time_span * 1000 << " ms." << endl;
     cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
-	for(int i = 0; i < size; ++i)
-		cout << fmt::format("({}, {})", res[i].reveal<int32_t>(), subkey[i].reveal<int32_t>())<<" ";
-	cout << endl;
+	// for(int i = 0; i < size; ++i)
+	// 	cout << fmt::format("({}, {})", res[i].reveal<int32_t>(), subkey[i].reveal<int32_t>())<<" ";
+	// cout << endl;
 
 	delete[] A;
 	delete[] B;
@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 	setup_semi_honest(io_gc, party);
 	test_sort();
 	cout << "# AND gates: " << circ_exec->num_and() << endl;
-	if (party == ALICE)
+if (party == ALICE)
 		cout << "Setup time: " << circ_exec->total_time << "ms" << endl;
 	else
 	 	cout << "Online time: " << circ_exec->total_time << "ms" << endl;

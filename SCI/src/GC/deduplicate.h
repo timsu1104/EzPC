@@ -36,13 +36,9 @@ Modified by Deevashwer Rathee
 
 namespace sci {
 
-inline bool is_power_of_2(int x) {
-    return (x & (x-1)) == 0;
-}
-
 Integer* deduplicate(Integer* in, int B, int N, int bitlength);
 
-Integer* remap(Integer* in, Integer* inDeduplicated, Integer* resp, int B, int N, int bitlength, Integer* constantArray);
+Integer* remap(Integer* in, Integer* inDeduplicated, Integer* resp, int b, int B, int N, int bitlength, int* cuckoo_map, Integer* constantArray);
 
 } // namespace sci
 #endif

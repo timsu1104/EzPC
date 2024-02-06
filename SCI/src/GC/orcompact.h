@@ -35,16 +35,6 @@ Modified by Deevashwer Rathee
 
 namespace sci {
 
-inline int getLogOf(int x) {
-  int log = 0;
-  x >>= 1;
-  while (x) {
-      log++;
-      x >>= 1;
-  }
-  return log;
-}
-
 inline Integer mod(Integer x, int len, Bit& zero) {
   for (int i=len; i < x.size()-1; i++) {
     x[i] = zero;
@@ -62,7 +52,7 @@ inline Integer* getConstantArray(int n, int bitlen) {
 
 void OROffCompact(Bit* label, std::vector<Integer*> data, Integer* prefixSum, Integer& z, int n, int bitlen, Integer* constant);
 
-void ORCompact(Bit* label, std::vector<Integer*> data, int n, int bitlen, Integer* constant);
+void ORCompact(Bit* label, std::vector<Integer*> data, int n, int bitlen, Integer* constant, Integer* prefixSum=nullptr);
 
 
 } // namespace sci
