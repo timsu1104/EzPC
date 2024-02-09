@@ -3,7 +3,8 @@ add_library(SCI-GC
     halfgate_gen.cpp
     halfgate_eva.cpp
     orcompact.cpp
-    deduplicate.cpp)
+    deduplicate.cpp
+    lowmc.cpp)
 target_link_libraries(SCI-GC
     PUBLIC SCI-utils SCI-OT
 )

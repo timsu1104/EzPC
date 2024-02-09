@@ -32,6 +32,7 @@ Modified by Deevashwer Rathee
 #include "GC/swappable.h"
 #include "utils/block.h"
 #include "utils/utils.h"
+#include <vector>
 
 namespace sci {
 class Bit : public Swappable<Bit> {
@@ -48,6 +49,21 @@ public:
   Bit operator&(const Bit &rhs) const;
   Bit operator|(const Bit &rhs) const;
   Bit operator!() const;
+
+  inline static std::vector<Bit> batchAnd(const std::vector<Bit> lhs, const std::vector<Bit> rhs) {
+    auto len = lhs.size();
+    std::vector<Bit> res(len);
+    std::vector<block128> lhs_buf(len), rhs_buf(len);
+    for (int i = 0; i < len; i++) {
+      lhs_buf[i] = lhs[i].bit;
+      rhs_buf[i] = rhs[i].bit;
+    }
+    auto res_buf = circ_exec->and_gate(lhs_buf, rhs_buf);
+    for (int i = 0; i < len; i++) {
+      res[i] = res_buf[i];
+    }
+    return res;
+  }
 
   // swappable
   Bit select(const Bit &select, const Bit &new_v) const;

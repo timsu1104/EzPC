@@ -29,6 +29,7 @@ Modified by Deevashwer Rathee
 #define EMP_CIRCUIT_EXECUTION_H__
 #include "utils/block.h"
 #include "utils/constants.h"
+#include <vector>
 
 namespace sci {
 
@@ -48,6 +49,7 @@ public:
   double total_time = 0;
   timespec time_start, time_end;
   virtual block128 and_gate(const block128 &in1, const block128 &in2) = 0;
+  virtual std::vector<block128> and_gate(const std::vector<block128> &a, const std::vector<block128> &b) = 0;
   virtual block128 xor_gate(const block128 &in1, const block128 &in2) = 0;
   virtual block128 not_gate(const block128 &in1) = 0;
   virtual block128 public_label(bool b) = 0;

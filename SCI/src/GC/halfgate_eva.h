@@ -31,7 +31,6 @@ Modified by Deevashwer Rathee
 #include "GC/mitccrh.h"
 #include "GC/utils.h"
 #include "utils/utils.h"
-#include <iostream>
 namespace sci {
 
 block128 halfgates_eval(block128 A, block128 B, const block128 *table,
@@ -55,6 +54,18 @@ public:
     io->recv_block(table, 2);
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     auto res = halfgates_eval(a, b, table, &mitccrh);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    total_time += getMillies(time_start, time_end);
+    return res;
+  }
+  std::vector<block128> and_gate(const std::vector<block128> &a, const std::vector<block128> &b) override {
+    auto len = a.size();
+    std::vector<block128> res(len);
+    block128 table[2 * len];
+    io->recv_block(table, 2 * len);
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    for (int i = 0; i < len; i++)
+      res[i] = halfgates_eval(a[i], b[i], table + (2 * i), &mitccrh);
     clock_gettime(CLOCK_MONOTONIC, &time_end);
     total_time += getMillies(time_start, time_end);
     return res;

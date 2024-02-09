@@ -36,6 +36,7 @@ add_test_HE(elemwise_prod)
 add_test_float(bench_op)
 add_test_float(primitive)
 add_test_float(compound)
+add_test_float(lowmc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(MPFR 2.3.0 REQUIRED)

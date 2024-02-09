@@ -31,7 +31,6 @@ Modified by Deevashwer Rathee
 #include "GC/mitccrh.h"
 #include "GC/utils.h"
 #include "utils/utils.h"
-#include <iostream>
 namespace sci {
 
 /*
@@ -70,6 +69,18 @@ public:
     clock_gettime(CLOCK_MONOTONIC, &time_end);
     total_time += getMillies(time_start, time_end);
     io->send_block(table, 2);
+    return res;
+  }
+  std::vector<block128> and_gate(const std::vector<block128> &a, const std::vector<block128> &b) override {
+    auto len = a.size();
+    std::vector<block128> res(len);
+    block128 table[2 * len];
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    for (int i = 0; i < len; i++)
+      res[i] = halfgates_garble(a[i], a[i] ^ delta, b[i], b[i] ^ delta, delta, table + (2 * i), &mitccrh);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    total_time += getMillies(time_start, time_end);
+    io->send_block(table, 2 * len);
     return res;
   }
   block128 xor_gate(const block128 &a, const block128 &b) override {

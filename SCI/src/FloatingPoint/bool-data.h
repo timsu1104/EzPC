@@ -23,6 +23,8 @@ SOFTWARE.
 #define BOOL_DATA_H__
 
 #include "Math/math-functions.h"
+#include <cstddef>
+#include <cstdint>
 
 #define I 0
 #define J 1
@@ -80,6 +82,14 @@ public:
     memcpy(this->data, other.data, size * sizeof(uint8_t));
     return *this;
   }
+  
+  uint8_t &operator[](size_t i) noexcept {
+    return data[i];
+  }
+  
+  const uint8_t &operator[](size_t i) const noexcept {
+    return data[i];
+  }
 
   // move assignment
   BoolArray &operator=(BoolArray &&other) noexcept {
@@ -122,6 +132,15 @@ public:
   BoolArray input(int party_, int sz, uint8_t* data_);
   // same as the above function, except that it replicates data_ in all sz positions of the returned BoolArray
   BoolArray input(int party_, int sz, uint8_t data_);
+  BoolArray inputx(int party_, int sz, uint32_t x) {
+    uint8_t *d = new uint8_t[sz];
+    for (int i = 0; i < sz && x; i ++, x >>= 1) {
+      d[i] = x & 1;
+    }
+    auto res = input(party_, sz, d);
+    delete [] d;
+    return res;
+  }
 
   // output function: returns the secret array underlying x in the form of a PUBLIC BoolArray
   // party_ denotes which party will receive the output. If party_ is PUBLIC, both parties receive the output.

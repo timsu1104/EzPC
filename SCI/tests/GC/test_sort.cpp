@@ -1,8 +1,6 @@
 #include "GC/emp-sh2pc.h"
 #include <iostream>
 #include <chrono>
-#include <ratio>
-#include <ctime>
 #include <fmt/core.h>
 
 using namespace sci;
@@ -68,7 +66,7 @@ int main(int argc, char **argv) {
 	setup_semi_honest(io_gc, party);
 	test_sort();
 	cout << "# AND gates: " << circ_exec->num_and() << endl;
-if (party == ALICE)
+	if (party == ALICE)
 		cout << "Setup time: " << circ_exec->total_time << "ms" << endl;
 	else
 	 	cout << "Online time: " << circ_exec->total_time << "ms" << endl;

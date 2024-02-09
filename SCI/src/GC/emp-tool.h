@@ -8,6 +8,7 @@
 #include "GC/swappable.h"
 #include "GC/orcompact.h"
 #include "GC/deduplicate.h"
+#include "GC/lowmc.h"
 
 #include "GC/aes_opt.h"
 #include "GC/f2k.h"
