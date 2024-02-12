@@ -30,8 +30,8 @@ Modified by Deevashwer Rathee
 #include "GC/bit.h"
 #include "GC/integer.h"
 #include "GC/number.h"
-#include <iostream>
 #include <fmt/core.h>
+#include <vector>
 
 namespace sci {
 
@@ -42,18 +42,21 @@ inline Integer mod(Integer x, int len, Bit& zero) {
   return x;
 }
 
-inline Integer* getConstantArray(int n, int bitlen) {
-  Integer* constantArray = new Integer[n];
+inline std::vector<Integer> getConstantArray(int n, int bitlen) {
+  std::vector<Integer> constantArray(n);
   for (int i = 0; i < n; i++) {
     constantArray[i] = Integer(bitlen, i);
   }
   return constantArray;
 }
 
-void OROffCompact(Bit* label, std::vector<Integer*> data, Integer* prefixSum, Integer& z, int n, int bitlen, Integer* constant);
+void OROffCompact(BitArray label, std::vector<IntegerArray>& data, IntegerArray prefixSum, Integer& z, int n, int bitlen, int offset, IntegerArray constant, CompResultType& result);
 
-void ORCompact(Bit* label, std::vector<Integer*> data, int n, int bitlen, Integer* constant, Integer* prefixSum=nullptr);
+void ORCompact(BitArray label, std::vector<IntegerArray>& data, int n, int bitlen, IntegerArray constant, IntegerArray prefixSum, CompResultType& result);
 
+CompResultType compact(BitArray label, std::vector<IntegerArray>& data, int n, int bitlen, IntegerArray constant);
+
+CompResultType compact(BitArray label, IntegerArray& data, int n, int bitlen, IntegerArray constant);
 
 } // namespace sci
 #endif

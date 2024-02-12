@@ -30,7 +30,6 @@ Modified by Deevashwer Rathee
 
 #include "GC/bit.h"
 #include "GC/comparable.h"
-#include "GC/number.h"
 #include "GC/swappable.h"
 #include <algorithm>
 #include <bitset>
@@ -81,6 +80,8 @@ public:
   Bit &operator[](int index);
   const Bit &operator[](int index) const;
 };
+
+typedef std::vector<Integer> IntegerArray;
 
 #include "GC/integer.hpp"
 } // namespace sci

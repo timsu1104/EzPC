@@ -79,6 +79,8 @@ public:
   Bit(size_t size, const block128 *a) { memcpy(&bit, a, sizeof(block128)); }
 };
 
+typedef std::vector<Bit> BitArray;
+
 #include "GC/bit.hpp"
 } // namespace sci
 #endif

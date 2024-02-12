@@ -28,19 +28,17 @@ Modified by Deevashwer Rathee
 #ifndef EMP_NUMBER_H__
 #define EMP_NUMBER_H__
 #include "GC/bit.h"
+#include "GC/integer.h"
+#include <tuple>
 
+using std::cout, std::endl;
 namespace sci {
-template <typename T, typename D>
-void cmp_swap(T *key, T *subkey, std::vector<D*> data, int i, int j, Bit acc) {
-  Bit to_swap = ((key[i] > key[j]) == acc);
-  if (subkey != nullptr) {
-    to_swap = to_swap | ((key[i] == key[j]) & ((subkey[i] > subkey[j]) == acc));
-    swap(to_swap, subkey[i], subkey[j]);
-  }
-  swap(to_swap, key[i], key[j]);
-  for (auto& datum: data)
-    swap(to_swap, datum[i], datum[j]);
-}
+
+typedef std::tuple<Bit, int, int> CompResultItem;
+class CompResultType: public std::vector<CompResultItem> {
+public:
+  bool recording;
+};
 
 inline int greatestPowerOfTwoLessThan(int n) {
   int k = 1;
@@ -63,30 +61,54 @@ inline int getLogOf(int x) {
   return log;
 }
 
-template <typename T, typename D>
-void bitonic_merge(T *key, T *subkey, std::vector<D*> data, int lo, int n, Bit acc) {
-  if (n > 1) {
-    int m = greatestPowerOfTwoLessThan(n);
-    for (int i = lo; i < lo + n - m; i++)
-      cmp_swap(key, subkey, data, i, i + m, acc);
-    bitonic_merge(key, subkey, data, lo, m, acc);
-    bitonic_merge(key, subkey, data, lo + m, n - m, acc);
+inline void show(IntegerArray& x, string name) {
+  cout << name << ": ";
+  for (int i=0; i<x.size(); i++) {
+    cout << x[i].reveal<uint32_t>() << " ";
+  }
+  cout << endl;
+}
+
+inline void show(BitArray& x, string name) {
+  cout << name << ": ";
+  for (int i=0; i<x.size(); i++) {
+    cout << x[i].reveal() << " ";
+  }
+  cout << endl;
+}
+
+inline void show(std::vector<int>& x, string name) {
+  cout << name << ": ";
+  for (int i=0; i<x.size(); i++) {
+    cout << x[i] << " ";
+  }
+  cout << endl;
+}
+
+inline void permute(const CompResultType result, IntegerArray& data, bool inverse = false) {
+  if (!inverse) {
+    for (auto [s, i, j] : result) {
+      swap(s, data[i], data[j]);
+    }
+  } else {
+    Bit s;
+    int i, j;
+    for (auto it = result.rbegin(); it != result.rend(); ++it) {
+      std::tie(s, i, j) = *it;
+      swap(s, data[i], data[j]);
+    }
   }
 }
 
-template <typename T, typename D>
-void bitonic_sort(T *key, T *subkey, std::vector<D*> data, int lo, int n, Bit acc) {
-  if (n > 1) {
-    int m = n / 2;
-    bitonic_sort(key, subkey, data, lo, m, !acc);
-    bitonic_sort(key, subkey, data, lo + m, n - m, acc);
-    bitonic_merge(key, subkey, data, lo, n, acc);
-  }
-}
+void cmp_swap(std::vector<IntegerArray>& data, std::vector<int>& plain_key, int i, int j, Bit acc, bool plain_acc, CompResultType& result);
 
-template <typename T, typename D = Bit>
-void sort(T *key, int size, std::vector<D*> data = {}, T *subkey=nullptr, Bit acc = true) {
-  bitonic_sort(key, subkey, data, 0, size, acc);
-}
+void bitonic_merge(std::vector<IntegerArray>& data, std::vector<int>& plain_key, int lo, int n, Bit acc, bool plain_acc, CompResultType& result);
+void bitonic_sort(std::vector<IntegerArray>& data, std::vector<int>& plain_key, int lo, int n, Bit acc, bool plain_acc, CompResultType& result);
+// Sort data, key is the first columns
+CompResultType sort(std::vector<IntegerArray>& data, int size, bool record = true, Bit acc = true);
+CompResultType sort(IntegerArray& data, int size, bool record = true, Bit acc = true);
+CompResultType sort(std::vector<IntegerArray>& data, std::vector<int>& plain_key, int size, bool record = true, bool acc = true);
+CompResultType sort(IntegerArray& data, std::vector<int>& plain_key, int size, bool record = true, bool acc = true);
+
 } // namespace sci
 #endif

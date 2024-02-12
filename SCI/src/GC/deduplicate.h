@@ -31,14 +31,28 @@ Modified by Deevashwer Rathee
 #include "GC/integer.h"
 #include "GC/number.h"
 #include "GC/orcompact.h"
-#include <iostream>
 #include <fmt/core.h>
 
 namespace sci {
 
-Integer* deduplicate(Integer* in, int B, int N, int bitlength);
 
-Integer* remap(Integer* in, Integer* inDeduplicated, Integer* resp, int b, int B, int N, int bitlength, int* cuckoo_map, Integer* constantArray);
+struct BatchLUTConfig {
+  int batch_size, bucket_size, db_size, bitlength;
+};
+    
+struct DedupContext {
+  CompResultType sort_result, compact_result;
+  BitArray label;
+  IntegerArray constantArray;
+  BatchLUTConfig config;
+};
+
+DedupContext deduplicate(IntegerArray& in, BatchLUTConfig config);
+
+// Integer* remap_obselete(Integer* in, Integer* inDeduplicated, Integer* resp, int b, int B, int N, int bitlength, int* cuckoo_map, Integer* constantArray);
+
+// cuckoo map: [0, b) -> [0, B), -1
+void remap(IntegerArray& resp, std::vector<int> cuckoo_map, DedupContext& context);
 
 } // namespace sci
 #endif

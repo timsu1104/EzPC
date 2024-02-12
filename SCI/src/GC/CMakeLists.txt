@@ -2,6 +2,7 @@ add_library(SCI-GC
     emp-tool.cpp
     halfgate_gen.cpp
     halfgate_eva.cpp
+    number.cpp
     orcompact.cpp
     deduplicate.cpp
     lowmc.cpp)

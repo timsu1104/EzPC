@@ -2,8 +2,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <chrono>
-#include <ratio>
-#include <ctime>
 #include <set>
 #include <fmt/core.h>
 
@@ -15,11 +13,11 @@ int bitlength = 32;
 NetIO *io_gc;
 
 void test_compaction() {
-	Bit *label = new Bit[batch_size];
-	Integer *B = new Integer[batch_size];
+	BitArray label(batch_size);
+	IntegerArray B(batch_size);
 
-	int* in = new int[batch_size];
-	bool* labelvec = new bool[batch_size];
+	std::vector<int> in(batch_size);
+	std::vector<bool> labelvec(batch_size);
 	for (int i = 0, m = batch_size >> 1; i < batch_size; ++i) {
 		if (rand() % (batch_size - i) < m) {
 			labelvec[i] = 1;
@@ -42,28 +40,15 @@ void test_compaction() {
 	
     auto comm_start = io_gc->counter;
     auto round_start = io_gc->num_rounds;
-	auto time_start = high_resolution_clock::now();
+	auto time_start = clock_start();
 	
 	auto constantArray = getConstantArray(batch_size, bitlength);
-	ORCompact(label, std::vector{B}, batch_size, bitlength, constantArray);
+	auto compact_result = compact(label, B, batch_size, bitlength, constantArray);
 
-	auto time_end = high_resolution_clock::now();
-	auto time_span = std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count();
-	cout << fmt::format("elapsed {} ms. ", time_span * 1000) << endl;
+	auto time_span = time_from(time_start);
+	cout << BLUE << "Compaction" << RESET << endl;
+	cout << fmt::format("elapsed {} ms. ", time_span / 1000) << endl;
 	cout << fmt::format("sent {} MB with {} rounds. ", (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)), (io_gc->num_rounds - round_start)) << endl;
-
-	// cout << "in: ";
-	// for(int i = 0; i < size; ++i)
-	// 	cout << fmt::format("{} ", in[i]);
-	// cout << endl;
-	// cout << "label: ";
-	// for(int i = 0; i < size; ++i)
-	// 	cout << fmt::format("{} ", labelvec[i]);
-	// cout << endl;
-	// cout << "compacted: ";
-	// for(int i = 0; i < size / 2; ++i)
-	// 	cout << fmt::format("{} ", B[i].reveal<int32_t>());
-	// cout << endl;
 
 	// Verify
 	std::multiset<int32_t> s;
@@ -78,13 +63,24 @@ void test_compaction() {
 			s.extract(in[i]);
 		}
 	}
+
+	comm_start = io_gc->counter;
+    round_start = io_gc->num_rounds;
+	time_start = clock_start();
+	
+	permute(compact_result, B, true);
+
+	time_span = time_from(time_start);
+	cout << BLUE << "Inverse Compaction" << RESET << endl;
+	cout << fmt::format("elapsed {} ms. ", time_span / 1000) << endl;
+	cout << fmt::format("sent {} MB with {} rounds. ", (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)), (io_gc->num_rounds - round_start)) << endl;
+
+	for(int i = 0; i < batch_size; ++i)
+		if(in[i] != B[i].reveal<int32_t>())
+			error(fmt::format("{}-th position incorrect! {} != {}", i, in[i], B[i].reveal<int32_t>()).c_str());
+
 	cout << "Test passed" << endl;
 
-	delete[] label;
-	delete[] B;
-	delete[] constantArray;
-	delete[] in;
-	delete[] labelvec;
 }
 
 int main(int argc, char **argv) {

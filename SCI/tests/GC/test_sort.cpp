@@ -1,4 +1,5 @@
 #include "GC/emp-sh2pc.h"
+#include <cstdint>
 #include <iostream>
 #include <chrono>
 #include <fmt/core.h>
@@ -6,49 +7,50 @@
 using namespace sci;
 using std::cout, std::endl;
 
-int party, port = 8000, iters = 512, size = 256;
+int party, port = 8000, iters = 512, batch_size = 256;
 int bitlength = 32;
 NetIO *io_gc;
 
 void test_sort() {
-	Integer *A = new Integer[size];
-	Integer *B = new Integer[size];
-	Integer *res = new Integer[size];
-	
-	Integer *subkey = new Integer[size];
+	std::vector<uint32_t> plain(batch_size);
+	IntegerArray in(batch_size);
 
 // First specify Alice's input
-	for(int i = 0; i < size; ++i)
-		A[i] = Integer(bitlength, rand()%(size >> 1), ALICE);
-
-// Now specify Bob's input
-	for(int i = 0; i < size; ++i)
-		B[i] = Integer(bitlength, rand()%(size >> 1), BOB);
-	
-// Now specify public subkey
-	for(int i = 0; i < size; ++i)
-		subkey[i] = Integer(bitlength, size - i, PUBLIC);
-
-//Now compute
-	for(int i = 0; i < size; ++i)
-		res[i] = A[i] ^ B[i];
+	for(int i = 0; i < batch_size; ++i) {
+		plain[i] = rand()%(batch_size >> 1);
+		in[i] = Integer(bitlength, plain[i], ALICE);
+	}
 	
     auto comm_start = io_gc->counter;
-	auto time_start = high_resolution_clock::now();
+	auto time_start = clock_start();
 
-	sort(res, size);
+	auto swap_map = sort(in, batch_size);
 
-	auto time_end = high_resolution_clock::now();
-	auto time_span = std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count();
-    cout << "elapsed " << time_span * 1000 << " ms." << endl;
+	auto time_span = time_from(time_start);
+	cout << BLUE << "Sort" << RESET << endl;
+    cout << "elapsed " << time_span / 1000 << " ms." << endl;
     cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
-	// for(int i = 0; i < size; ++i)
-	// 	cout << fmt::format("({}, {})", res[i].reveal<int32_t>(), subkey[i].reveal<int32_t>())<<" ";
-	// cout << endl;
+	int max = -1;
+	for(int i = 0; i < batch_size; ++i) {
+		auto res = in[i].reveal<int32_t>();
+		if (max > res)
+			error(fmt::format("{}-th position incorrect!", i).c_str());
+		max = res;
+	}
 
-	delete[] A;
-	delete[] B;
-	delete[] res;
+	comm_start = io_gc->counter;
+	time_start = high_resolution_clock::now();
+
+	permute(swap_map, in, true);
+
+	time_span = time_from(time_start);
+	cout << BLUE << "Unsort" << RESET << endl;
+    cout << "elapsed " << time_span / 1000 << " ms." << endl;
+    cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
+	for(int i = 0; i < batch_size; ++i)
+		if(plain[i] != in[i].reveal<int32_t>())
+			error(fmt::format("{}-th position incorrect! {} != {}", i, plain[i], in[i].reveal<int32_t>()).c_str());
+
 }
 
 int main(int argc, char **argv) {
@@ -56,7 +58,7 @@ int main(int argc, char **argv) {
 	ArgMapping amap;
 	amap.arg("r", party, "Role of party: ALICE = 1; BOB = 2");
 	amap.arg("p", port, "Port Number");
-	amap.arg("s", size, "number of total elements");
+	amap.arg("s", batch_size, "number of total elements");
 	amap.arg("l", bitlength, "bitlength of inputs");
 	amap.parse(argc, argv);
 
