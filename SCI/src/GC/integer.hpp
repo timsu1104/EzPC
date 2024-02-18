@@ -261,8 +261,9 @@ inline Integer Integer::operator|(const Integer& rhs) const {
 
 inline Integer Integer::operator&(const Integer& rhs) const {
 	Integer res(*this);
-	for(int i = 0; i < size(); ++i)
-		res.bits[i] = res.bits[i] & rhs.bits[i];
+	res.bits = Bit::batchAnd(res.bits, rhs.bits);
+	// for(int i = 0; i < size(); ++i)
+	// 	res.bits[i] = res.bits[i] & rhs.bits[i];
 	return res;
 }
 

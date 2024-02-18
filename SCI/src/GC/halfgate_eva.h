@@ -76,7 +76,7 @@ public:
   block128 not_gate(const block128 &a) override {
     return xor_gate(a, public_label(true));
   }
-  size_t num_and() override { return mitccrh.gid; }
+  size_t num_and() override { return mitccrh.gid / 2; }
 };
 } // namespace sci
 #endif // HALFGATE_EVA_H__

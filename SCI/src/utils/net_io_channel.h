@@ -26,11 +26,14 @@ Enquiries about further applications and development opportunities are welcome.
 #define NETWORK_IO_CHANNEL
 
 #include "utils/io_channel.h"
+#include "GC/circuit_execution.h"
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <chrono>
+#include <fmt/format.h>
 using std::string;
 
 #include <arpa/inet.h>
@@ -47,16 +50,25 @@ namespace sci {
   @{
  */
 
+struct recordinfo {
+  uint64_t counter;
+  uint64_t num_rounds;
+  uint64_t num_ands;
+  std::chrono::time_point<std::chrono::system_clock> start_time;
+};
+
 class NetIO : public IOChannel<NetIO> {
 public:
   bool is_server;
   int mysocket = -1;
   int consocket = -1;
   FILE *stream = nullptr;
+
   char *buffer = nullptr;
   bool has_sent = false;
   string addr;
   int port;
+  std::map<string, recordinfo> record; 
   uint64_t counter = 0;
   uint64_t num_rounds = 0;
   bool FBF_mode;
@@ -141,6 +153,24 @@ public:
     close(consocket);
     delete[] buffer;
   }
+
+  void start_record(string tag) {
+    recordinfo info;
+    info.counter = counter;
+    info.num_rounds = num_rounds;
+    info.num_ands = circ_exec->num_and();
+    info.start_time = std::chrono::system_clock::now();
+    record[tag] = info;
+  }
+
+  void end_record(string tag) {
+    auto end_time = std::chrono::system_clock::now();
+    auto start_time = record[tag].start_time;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << fmt::format("{}: elapsed {} ms, sent {} MB, #AND={}. ", tag, duration.count(), (counter - record[tag].counter) / (1.0 * (1ULL << 20)), circ_exec->num_and() - record[tag].num_ands) << std::endl;
+    record.erase(tag);
+  }
+
 
   void set_FBF() {
     flush();
