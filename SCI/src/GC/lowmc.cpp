@@ -1,5 +1,4 @@
 #include <sys/types.h>
-#include <vector>
 #include <iostream>
 #include <algorithm>
 
@@ -7,43 +6,45 @@
 
 namespace sci {
 
-Integer count(Integer x) {
-    Integer temp(x.size(), 0);
-    Integer cnt(x.size(), 0);
-    for (int i = 0;i < x.size(); i++) {
-        temp[0] = x[i];
-        cnt = cnt + temp;
-    }
-    return cnt;
-}
-
 /////////////////////////////
 //     LowMC functions     //
 /////////////////////////////
 
-secret_block LowMC::encrypt (const secret_block message) {
-    secret_block c = message ^ roundkeys[0];
-    for (unsigned r = 1; r <= rounds; ++r) {
-        c =  Substitution(c);
-        c =  MultiplyWithGF2Matrix(LinMatrices[r-1], c);
-        c = c ^ roundconstants[r-1];
-        c = c ^ roundkeys[r];
-        return c;
-    }
-    return c;
+inline void print(secret_block b) {
+	for (int i=blocksize-1; i>=0; i--) {
+		std::cout << b[i][0].reveal();
+	}
+	std::cout << std::endl;
 }
 
-std::vector<secret_block> LowMC::encrypt (const std::vector<secret_block> &message) {
-    auto len = message.size();
-    std::vector<secret_block> c(len);
-    for (unsigned l = 0; l < len; l++) {
-        c[l] = message[l] ^ roundkeys[0];
+template <size_t _Nb>
+inline void print(std::array<Bit, _Nb> b) {
+	for (int i=_Nb-1; i>=0; i--) {
+		std::cout << b[i].reveal();
+	}
+	std::cout << std::endl;
+}
+
+secret_block batch_xor(const secret_block &a, const shared_block &b) {
+    secret_block res;
+    uint32_t simd_elems = a[0].size();
+    for (unsigned i = 0; i < blocksize; i++) {
+        res[i] = Integer(simd_elems, 0);
+        for (unsigned j = 0; j < simd_elems; j++) {
+            res[i][j] = a[i][j] ^ b[i];
+        }
     }
+    return res;
+}
+
+// NumAnds = size * rounds * numofboxes * 3
+secret_block LowMC::encrypt (const secret_block message) {
+    auto c = batch_xor(message, roundkeys[0]);
     for (unsigned r = 1; r <= rounds; ++r) {
         Substitution(c);
         c =  MultiplyWithGF2Matrix(LinMatrices[r-1], c);
-        for (int l = 0; l < len; l++) 
-            c[l] = c[l] ^ roundconstants[r-1] ^ roundkeys[r];
+        c = batch_xor(c, roundconstants[r-1]);
+        c = batch_xor(c, roundkeys[r]);
     }
     return c;
 }
@@ -118,40 +119,22 @@ void LowMC::print_matrices() {
     }
 }
 
-void LowMC::verify_sbox() {
-    const std::vector<unsigned> sbox = {0x00, 0x01, 0x03, 0x06, 0x07, 0x04, 0x05, 0x02};
-    for (int i = 0; i < 8; i++) {
-        assert(sbox[i] == Sbox(Integer(3, i)).reveal<unsigned>());
-    }
-}
-
 /////////////////////////////
 // LowMC private functions //
 /////////////////////////////
 
 
-secret_block LowMC::Substitution (const secret_block message) {
-    //Get the identity part of the message
-    secret_block temp = (message >> 3*numofboxes);
-    //Get the rest through the Sboxes
-    for (unsigned i = 1; i <= numofboxes; ++i) {
-        auto buf = message >> 3*(numofboxes-i);
-        auto sbox = Sbox(buf);
-        temp = (temp << 3) ^ sbox;
-    }
-    return temp;
-}
-
-void LowMC::Substitution (std::vector<secret_block> &message) {
+void LowMC::Substitution (secret_block &message) {
     for (unsigned i = 0; i < numofboxes; ++i) {
         Sbox(message, 3*i); 
     }
 }
 
 secret_block LowMC::MultiplyWithGF2Matrix
-        (const std::vector<block> &matrix, const secret_block message) {
-    secret_block temp(blocksize, 0);
+        (const std::array<block, blocksize> matrix, const secret_block message) {
+    secret_block temp;
     for (unsigned i = 0; i < blocksize; ++i) {
+        temp[i] = Integer(nvals_, 0);
         for (unsigned j = 0; j < blocksize; ++j) {
             if (matrix[i][j]) {
                 temp[i] = temp[i] ^ message[j];
@@ -161,28 +144,12 @@ secret_block LowMC::MultiplyWithGF2Matrix
     return temp;
 }
 
-
-std::vector<secret_block> LowMC::MultiplyWithGF2Matrix
-        (const std::vector<block> &matrix, const std::vector<secret_block> &message) {
-    std::vector<secret_block> res(message.size(), Integer(blocksize, 0));
+shared_block LowMC::MultiplyWithGF2Matrix_Key
+        (const std::array<keyblock, blocksize> matrix, const secret_keyblock k) {
+    shared_block temp;
     for (unsigned i = 0; i < blocksize; ++i) {
-        for (unsigned j = 0; j < blocksize; ++j) {
-            if (matrix[i][j]) {
-                for (unsigned l = 0; l < res.size(); ++l) {
-                    res[l][i] = res[l][i] ^ message[l][j];
-                }
-            }
-        }
-    }
-    return res;
-}
-
-
-secret_block LowMC::MultiplyWithGF2Matrix_Key
-        (const std::vector<keyblock> &matrix, const secret_keyblock k) {
-    secret_block temp(blocksize, 0);
-    for (unsigned i = 0; i < blocksize; ++i) {
-        for (unsigned j = 0; j < blocksize; ++j) {
+        temp[i] = Bit(0);
+        for (unsigned j = 0; j < keysize; ++j) {
             if (matrix[i][j]) {
                 temp[i] = temp[i] ^ k[j];
             }
@@ -192,9 +159,8 @@ secret_block LowMC::MultiplyWithGF2Matrix_Key
 }
 
 void LowMC::keyschedule () {
-    roundkeys.clear();
     for (unsigned r = 0; r <= rounds; ++r) {
-        roundkeys.push_back( MultiplyWithGF2Matrix_Key (KeyMatrices[r], key) );
+        roundkeys[r] = MultiplyWithGF2Matrix_Key (KeyMatrices[r], key);
     }
     return;
 }
@@ -202,43 +168,36 @@ void LowMC::keyschedule () {
 
 void LowMC::instantiate_LowMC () {
     // Create LinMatrices and invLinMatrices
-    LinMatrices.clear();
-    // invLinMatrices.clear();
     for (unsigned r = 0; r < rounds; ++r) {
         // Create matrix
-        std::vector<block> mat;
+        std::array<block, blocksize> mat;
         // Fill matrix with random bits
         do {
-            mat.clear();
             for (unsigned i = 0; i < blocksize; ++i) {
-                mat.push_back( getrandblock () );
+                mat[i] = getrandblock ();
             }
         // Repeat if matrix is not invertible
         } while ( rank_of_Matrix(mat) != blocksize );
-        LinMatrices.push_back(mat);
-        // invLinMatrices.push_back(invert_Matrix(mat));
+        LinMatrices[r] = mat;
     }
 
     // Create roundconstants
-    roundconstants.clear();
     for (unsigned r = 0; r < rounds; ++r) {
-        roundconstants.push_back( share(getrandblock ()) );
+        roundconstants[r] = share(getrandblock ());
     }
 
     // Create KeyMatrices
-    KeyMatrices.clear();
     for (unsigned r = 0; r <= rounds; ++r) {
         // Create matrix
-        std::vector<keyblock> mat;
+        std::array<keyblock, blocksize> mat;
         // Fill matrix with random bits
         do {
-            mat.clear();
             for (unsigned i = 0; i < blocksize; ++i) {
-                mat.push_back( getrandkeyblock () );
+                mat[i] = getrandkeyblock ();
             }
         // Repeat if matrix is not of maximal rank
         } while ( rank_of_Matrix_Key(mat) < std::min(blocksize, keysize) );
-        KeyMatrices.push_back(mat);
+        KeyMatrices[r] = mat;
     }
     
     return;
@@ -250,11 +209,8 @@ void LowMC::instantiate_LowMC () {
 /////////////////////////////
 
 
-unsigned LowMC::rank_of_Matrix (const std::vector<block> &matrix) {
-    std::vector<block> mat; //Copy of the matrix 
-    for (auto u : matrix) {
-        mat.push_back(u);
-    }
+unsigned LowMC::rank_of_Matrix (const std::array<block, blocksize> matrix) {
+    std::array<block, blocksize> mat = matrix; //Copy of the matrix 
     unsigned size = mat[0].size();
     //Transform to upper triangular matrix
     unsigned row = 0;
@@ -282,11 +238,8 @@ unsigned LowMC::rank_of_Matrix (const std::vector<block> &matrix) {
 }
 
 
-unsigned LowMC::rank_of_Matrix_Key (const std::vector<keyblock> &matrix) {
-    std::vector<keyblock> mat; //Copy of the matrix 
-    for (auto u : matrix) {
-        mat.push_back(u);
-    }
+unsigned LowMC::rank_of_Matrix_Key (const std::array<keyblock, blocksize> matrix) {
+    std::array<keyblock, blocksize> mat = matrix; //Copy of the matrix 
     unsigned size = mat[0].size();
     //Transform to upper triangular matrix
     unsigned row = 0;
@@ -312,59 +265,6 @@ unsigned LowMC::rank_of_Matrix_Key (const std::vector<keyblock> &matrix) {
     }
     return row;
 }
-
-
-// std::vector<block> LowMC::invert_Matrix (const std::vector<block> matrix) {
-//     std::vector<block> mat; //Copy of the matrix 
-//     for (auto u : matrix) {
-//         mat.push_back(u);
-//     }
-//     std::vector<block> invmat(blocksize, 0); //To hold the inverted matrix
-//     for (unsigned i = 0; i < blocksize; ++i) {
-//         invmat[i][i] = 1;
-//     }
-
-//     unsigned size = mat[0].size();
-//     //Transform to upper triangular matrix
-//     unsigned row = 0;
-//     for (unsigned col = 0; col < size; ++col) {
-//         if ( !mat[row][col] ) {
-//             unsigned r = row+1;
-//             while (r < mat.size() && !mat[r][col]) {
-//                 ++r;
-//             }
-//             if (r >= mat.size()) {
-//                 continue;
-//             } else {
-//                 auto temp = mat[row];
-//                 mat[row] = mat[r];
-//                 mat[r] = temp;
-//                 temp = invmat[row];
-//                 invmat[row] = invmat[r];
-//                 invmat[r] = temp;
-//             }
-//         }
-//         for (unsigned i = row+1; i < mat.size(); ++i) {
-//             if ( mat[i][col] ) {
-//                 mat[i] ^= mat[row];
-//                 invmat[i] ^= invmat[row];
-//             }
-//         }
-//         ++row;
-//     }
-
-//     //Transform to identity matrix
-//     for (unsigned col = size; col > 0; --col) {
-//         for (unsigned r = 0; r < col-1; ++r) {
-//             if (mat[r][col-1]) {
-//                 mat[r] ^= mat[col-1];
-//                 invmat[r] ^= invmat[col-1];
-//             }
-//         }
-//     }
-
-//     return invmat;
-// }
 
 ///////////////////////
 // Pseudorandom bits //

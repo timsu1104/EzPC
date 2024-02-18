@@ -2,7 +2,6 @@
 #include <iostream>
 #include <chrono>
 #include <fmt/core.h>
-#include <vector>
 
 using namespace sci;
 using std::cout, std::endl;
@@ -11,26 +10,24 @@ int party, port = 8000, size = 256;
 NetIO *io_gc;
 
 void test_lowmc() {
-	std::vector<secret_block> m(size, Integer(blocksize, rand(), BOB));
-	m[0] = Integer(blocksize, 0xFFD5, BOB);
-	
-	auto time_start = high_resolution_clock::now();
-
-	LowMC cipher(1, ALICE);
-	
-    cout << "Built cipher: elapsed " << time_from(time_start) / 1000.0 << " ms." << endl;
-
-    auto comm_start = io_gc->counter;
-	time_start = high_resolution_clock::now();
-
-	auto res = cipher.encrypt(m);
-
-    cout << "Encryption: elapsed " << time_from(time_start) / 1000.0 << " ms." << endl;
-    cout << "Encryption: sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
-
-	std::bitset<blocksize> ground_truth("0111010001011000111001110000111110101110010110001100011101011001");
+	secret_block m;
+	// m[0] = Integer(blocksize, 0xFFD5, BOB);
 	for (int i=0; i<blocksize; i++) {
-		if (res[0][i].reveal() != ground_truth[i]) {
+		m[i] = Integer(size, 0, BOB);
+	}
+	
+	io_gc->start_record("construction");
+	LowMC cipher(1, ALICE, size);
+	io_gc->end_record("construction");
+
+	io_gc->start_record("encrypt");
+	auto res = cipher.encrypt(m);
+	io_gc->end_record("encrypt");
+
+	std::bitset<blocksize> ground_truth("1001101011011101110100110000000000000000110110010111100010000100");
+	std::cout << endl;
+	for (int i=0; i<blocksize; i++) {
+		if (res[i][0].reveal() != ground_truth[i]) {
 			error(fmt::format("{}-th position not align! ", i).c_str());
 		}
 	}
@@ -55,8 +52,4 @@ int main(int argc, char **argv) {
 	cout << "General setup: elapsed " << time_span * 1000 << " ms." << endl;
 	test_lowmc();
 	cout << "# AND gates: " << circ_exec->num_and() << endl;
-	if (party == ALICE)
-		cout << "Setup time: " << circ_exec->total_time << "ms" << endl;
-	else
-	 	cout << "Online time: " << circ_exec->total_time << "ms" << endl;
 }
