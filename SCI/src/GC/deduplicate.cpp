@@ -7,37 +7,25 @@ namespace sci {
 
 DedupContext deduplicate(IntegerArray& in, BatchLUTConfig config) {
 
-  auto zero = Bit(false);
-  auto one = Bit(true);
-  auto logN = getLogOf(config.db_size);
-  
-  auto constantArray = getConstantArray(2*config.batch_size, config.bitlength);
-
-  // Step 1. Oblivious sort
   auto sort_result = sort(in, config.batch_size);
 
-  // Step 2. Append Dummies
-  in.resize(2*config.batch_size);
+  IntegerArray dummies(config.batch_size);
   for (int i = 0; i < config.batch_size; i++) {
-    in[config.batch_size+i] = constantArray[i+1];
-    in[config.batch_size+i][logN] = one;
+    in[i].resize(config.bitlength+1);
+    dummies[i] = Integer(config.bitlength+1, config.db_size+i);
+    // cout << dummies[i].reveal<uint>() << config.db_size+i << endl;
+    // assert(dummies[i].reveal<uint>() == config.db_size+i);
   }
-  
-  // Step 3. Assign tag bits
-  BitArray label(2*config.batch_size, one);
-  for (int i=1; i<config.batch_size; i++) {
-    label[i] = If(in[i] != in[i-1], one, zero);
-  }
-  
-  // Step 4. Oblivious Compaction
-  auto compact_result = compact(label, in, 2*config.batch_size, config.bitlength, constantArray); 
-  in.resize(config.batch_size);
+
+  BitArray label(config.batch_size);
+  for (int i=1; i<config.batch_size; i++)
+    label[i] = (in[i] == in[i-1]);
+  for (int i=1; i<config.batch_size; i++)
+    in[i] = If(label[i], dummies[i], in[i]);
 
   return DedupContext{
     sort_result,
-    compact_result, 
     label,
-    constantArray,
     config
   };
 }
@@ -48,23 +36,12 @@ void remap(IntegerArray& resp, std::vector<int> cuckoo_map, DedupContext& contex
 
   sort(resp, cuckoo_map, resp.size());
 
-  auto zeroint = Integer(config.bitlength, 0);
-  int new_size = config.batch_size * 2;
-  resp.resize(new_size);
-  cuckoo_map.resize(new_size);
-  for (int i = config.bucket_size; i < new_size; i++) {
-    resp[i] = zeroint;
-    cuckoo_map[i] = config.batch_size + 1;
-  }
-
-  permute(context.compact_result, resp, true);
-  resp.resize(config.batch_size);
-
   for (int i = 1; i < config.batch_size; i++) {
-    resp[i] = If(context.label[i], resp[i], resp[i-1]);
+    resp[i] = If(context.label[i], resp[i-1], resp[i]);
   }
 
   permute(context.sort_result, resp, true);
+  resp.resize(config.batch_size);
 }
 
 // Integer* remap(Integer* in, Integer* inDeduplicated, Integer* resp, int b, int B, int N, int bitlength, int* cuckoo_map, Integer* constantArray) {

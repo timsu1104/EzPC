@@ -11,7 +11,7 @@ using std::cout, std::endl;
 
 int party, port = 8000, batch_size = 256;
 int bucket_size = 3 * batch_size / 2;
-int bitlength = 32;
+int bitlength = 16;
 NetIO *io_gc;
 
 void test_deduplication() {
@@ -19,7 +19,7 @@ void test_deduplication() {
 	BatchLUTConfig config{
 		batch_size, 
 		bucket_size, 
-		(1ULL << 16), 
+		(1 << bitlength), 
 		bitlength
 	};
 
@@ -31,7 +31,7 @@ void test_deduplication() {
 		in[i] = rand()%(batch_size >> 1);
 		shrin[i] = Integer(bitlength, in[i], BOB);
 		if (!lut.count(in[i])) {
-			lut[in[i]] = rand();
+			lut[in[i]] = rand() % (1 << bitlength);
 		}
 	}
 	

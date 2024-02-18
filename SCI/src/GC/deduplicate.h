@@ -30,7 +30,6 @@ Modified by Deevashwer Rathee
 #include "GC/bit.h"
 #include "GC/integer.h"
 #include "GC/number.h"
-#include "GC/orcompact.h"
 #include <fmt/core.h>
 
 namespace sci {
@@ -41,9 +40,8 @@ struct BatchLUTConfig {
 };
     
 struct DedupContext {
-  CompResultType sort_result, compact_result;
+  CompResultType sort_result;
   BitArray label;
-  IntegerArray constantArray;
   BatchLUTConfig config;
 };
 
