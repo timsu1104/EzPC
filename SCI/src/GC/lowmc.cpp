@@ -131,7 +131,7 @@ void LowMC::Substitution (secret_block &message) {
 }
 
 secret_block LowMC::MultiplyWithGF2Matrix
-        (const std::array<block, blocksize> matrix, const secret_block message) {
+        (const std::array<block, blocksize>& matrix, const secret_block message) {
     secret_block temp;
     for (unsigned i = 0; i < blocksize; ++i) {
         temp[i] = Integer(nvals_, 0);
@@ -145,7 +145,7 @@ secret_block LowMC::MultiplyWithGF2Matrix
 }
 
 shared_block LowMC::MultiplyWithGF2Matrix_Key
-        (const std::array<keyblock, blocksize> matrix, const secret_keyblock k) {
+        (const std::array<keyblock, blocksize>& matrix, const secret_keyblock k) {
     shared_block temp;
     for (unsigned i = 0; i < blocksize; ++i) {
         temp[i] = Bit(0);
@@ -209,7 +209,7 @@ void LowMC::instantiate_LowMC () {
 /////////////////////////////
 
 
-unsigned LowMC::rank_of_Matrix (const std::array<block, blocksize> matrix) {
+unsigned LowMC::rank_of_Matrix (const std::array<block, blocksize>& matrix) {
     std::array<block, blocksize> mat = matrix; //Copy of the matrix 
     unsigned size = mat[0].size();
     //Transform to upper triangular matrix
@@ -238,7 +238,7 @@ unsigned LowMC::rank_of_Matrix (const std::array<block, blocksize> matrix) {
 }
 
 
-unsigned LowMC::rank_of_Matrix_Key (const std::array<keyblock, blocksize> matrix) {
+unsigned LowMC::rank_of_Matrix_Key (const std::array<keyblock, blocksize>& matrix) {
     std::array<keyblock, blocksize> mat = matrix; //Copy of the matrix 
     unsigned size = mat[0].size();
     //Transform to upper triangular matrix

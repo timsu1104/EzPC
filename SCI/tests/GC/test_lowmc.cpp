@@ -6,6 +6,8 @@
 using namespace sci;
 using std::cout, std::endl;
 
+#define BENCH_EACH 0
+
 int party, port = 8000, size = 256;
 NetIO *io_gc;
 
@@ -16,13 +18,24 @@ void test_lowmc() {
 		m[i] = Integer(size, 0, BOB);
 	}
 	
+	#if BENCH_EACH
 	io_gc->start_record("construction");
+	#else
+	io_gc->start_record("total");
+	#endif
+
 	LowMC cipher(1, ALICE, size);
+	#if BENCH_EACH
 	io_gc->end_record("construction");
 
 	io_gc->start_record("encrypt");
+	#endif
 	auto res = cipher.encrypt(m);
+	#if BENCH_EACH
 	io_gc->end_record("encrypt");
+	#else
+	io_gc->end_record("total");
+	#endif
 
 	std::bitset<blocksize> ground_truth("1001101011011101110100110000000000000000110110010111100010000100");
 	std::cout << endl;

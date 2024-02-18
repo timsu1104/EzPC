@@ -88,10 +88,10 @@ private:
         // The substitution layer
 
     secret_block MultiplyWithGF2Matrix
-        (const std::array<block, blocksize> matrix, const secret_block message);
+        (const std::array<block, blocksize>& matrix, const secret_block message);
         // For the linear layer
     shared_block MultiplyWithGF2Matrix_Key
-        (const std::array<keyblock, blocksize> matrix, const secret_keyblock k);
+        (const std::array<keyblock, blocksize>& matrix, const secret_keyblock k);
         // For generating the round keys
 
     void keyschedule ();
@@ -101,8 +101,8 @@ private:
         //Fills the matrices and roundconstants with pseudorandom bits 
    
 // Binary matrix functions //   
-    unsigned rank_of_Matrix (const std::array<block, blocksize> matrix);
-    unsigned rank_of_Matrix_Key (const std::array<keyblock, blocksize> matrix);
+    unsigned rank_of_Matrix (const std::array<block, blocksize>& matrix);
+    unsigned rank_of_Matrix_Key (const std::array<keyblock, blocksize>& matrix);
     // std::vector<block> invert_Matrix (const std::vector<block> matrix);
 
 // Random bits functions //
