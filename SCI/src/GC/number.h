@@ -61,6 +61,21 @@ inline int getLogOf(int x) {
   return log;
 }
 
+inline constexpr size_t ipow(size_t base, size_t exp)
+{
+    size_t result = 1;
+    while (true)
+    {
+        if (exp & 1)
+          result *= base;
+        exp >>= 1;
+        if (!exp)
+            break;
+        base *= base;
+    }
+    return result;
+}
+
 inline void show(IntegerArray& x, string name) {
   cout << name << ": ";
   for (int i=0; i<x.size(); i++) {

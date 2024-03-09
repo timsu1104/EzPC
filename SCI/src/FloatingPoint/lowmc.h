@@ -16,87 +16,74 @@ const unsigned rounds = 184; // Number of rounds
 const unsigned identitysize = blocksize - 3*numofboxes;
                   // Size of the identity part in the Sbox layer
 
-#define secret_block BoolArray // Store messages and states
-#define secret_keyblock BoolArray
 
 typedef std::bitset<blocksize> block; // Store messages and states
 typedef std::bitset<keysize> keyblock;
+typedef std::array<BoolArray, blocksize> secret_block_bool; // Store messages and states
+typedef std::array<BoolArray, keysize> secret_keyblock_bool;
 
 template <size_t _Nb>
-BoolArray share(std::bitset<_Nb> b, BoolOp* op, int party=sci::PUBLIC) {
-    uint8_t* buffer = new uint8_t[_Nb];
+std::array<BoolArray, _Nb> share(std::bitset<_Nb> b, BoolOp* op, uint32_t nvals, int party=sci::PUBLIC) {
+    std::array<BoolArray, _Nb> result;
+    BoolArray zero = op->input(party, nvals, (uint8_t)0);
+    BoolArray one = op->input(party, nvals, 1);
     for (int i = 0; i < _Nb; i++) {
-        buffer[i] = b[i];
+        result[i] = b[i] ? one : zero;
     }
-    auto result = op->input(party, _Nb, buffer);
-    return op->input(party, _Nb, buffer);
+    return result;
 }
 
 class LowMC_bool {
 public:
-    LowMC_bool (keyblock k, BoolOp* op, int party=sci::PUBLIC) : op(op) {
-        key = share(k, op, party);
-        instantiate_LowMC_bool();
-        keyschedule();   
-    };
-    LowMC_bool (secret_keyblock k, BoolOp* op) : key(k), op(op) {
+    uint32_t nvals;
+    LowMC_bool (keyblock k, BoolOp* op, uint32_t nvals=1, int party=sci::PUBLIC) : op(op), nvals(nvals) {
+        key = share(k, op, nvals, party);
         instantiate_LowMC_bool();
         keyschedule();   
     };
 
-    std::vector<secret_block> encrypt (const std::vector<secret_block> &message);
+    secret_block_bool encrypt (const secret_block_bool message);
     void set_key (keyblock k, int party=sci::PUBLIC);
-    void set_key (secret_keyblock k);
+    void set_key (secret_keyblock_bool k);
 
 private:
 // LowMC_bool private data members //
 
     // Compute with the 3 bits of message (offset, offset+1, offset+2)
-    void Sbox(std::vector<secret_block> &messages, size_t offset) {
-        size_t len = messages.size();
-        a = BoolArray(sci::BOB, len);
-        b = BoolArray(sci::BOB, len);
-        c = BoolArray(sci::BOB, len);
-        for (int i = 0; i < len; i++) {
-            auto& message = messages[i];
-            a[i] = message[offset+2];
-            b[i] = message[offset+1];
-            c[i] = message[offset+0];
-        }
+    void Sbox(secret_block_bool &messages, size_t offset) {
+        auto& a = messages[offset+2];
+        auto& b = messages[offset+1];
+        auto& c = messages[offset+0];
         auto bc = op->AND(b, c);
         auto ca = op->AND(c, a);
         auto ab = op->AND(a, b);
-        for (int i = 0; i < len; i++) {
-            auto& message = messages[i];
-            message[offset+2] = a[i] ^ bc[i];
-            message[offset+1] = a[i] ^ b[i] ^ ca[i];
-            message[offset+0] = a[i] ^ b[i] ^ c[i] ^ ab[i];
-        }
+        messages[offset+0] = op->XOR(a, op->XOR(b, op->XOR(c, ab)));
+        messages[offset+1] = op->XOR(a, op->XOR(b, ca));
+        messages[offset+2] = op->XOR(a, bc);
     }
 
-    BoolArray a, b, c;
     BoolOp* op;
 
     std::vector<std::vector<block>> LinMatrices;
         // Stores the binary matrices for each round
-    std::vector<secret_block> roundconstants;
+    std::vector<secret_block_bool> roundconstants;
         // Stores the round constants
-    secret_keyblock key;
+    secret_keyblock_bool key;
         //Stores the master key
     std::vector<std::vector<keyblock>> KeyMatrices;
         // Stores the matrices that generate the round keys
-    std::vector<secret_block> roundkeys;
+    std::vector<secret_block_bool> roundkeys;
         // Stores the round keys
     
 // LowMC_bool private functions //
-    void Substitution (std::vector<secret_block> &message);
+    void Substitution (secret_block_bool &message);
         // The substitution layer
 
-    std::vector<secret_block> MultiplyWithGF2Matrix
-        (const std::vector<block> &matrix, const std::vector<secret_block> &message);    
+    secret_block_bool MultiplyWithGF2Matrix
+        (const std::vector<block> &matrix, const secret_block_bool message);    
         // For the linear layer
-    secret_block MultiplyWithGF2Matrix_Key
-        (const std::vector<keyblock> &matrix, const secret_keyblock k);
+    secret_block_bool MultiplyWithGF2Matrix_Key
+        (const std::vector<keyblock> &matrix, const secret_keyblock_bool k);
         // For generating the round keys
 
     void keyschedule ();

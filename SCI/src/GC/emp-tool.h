@@ -9,6 +9,7 @@
 #include "GC/orcompact.h"
 #include "GC/deduplicate.h"
 #include "GC/lowmc.h"
+#include "GC/subcube_query.h"
 
 #include "GC/aes_opt.h"
 #include "GC/f2k.h"

@@ -1,5 +1,6 @@
 #include <vector>
 #include <cstdlib>
+#include <iostream>
 
 #include "LowMC.h"
 
@@ -7,18 +8,17 @@
 //     LowMC_bool functions     //
 /////////////////////////////
 
-std::vector<secret_block> LowMC_bool::encrypt (const std::vector<secret_block> &message) {
-    auto len = message.size();
-    std::vector<secret_block> c(len);
-    for (unsigned l = 0; l < len; l++) {
-        c[l] = op->XOR(message[l], roundkeys[0]);
+secret_block_bool LowMC_bool::encrypt (const secret_block_bool message) {
+    secret_block_bool c;
+    for (unsigned i = 0; i < blocksize; ++i) {
+        c[i] = op->XOR(message[i], roundkeys[0][i]);
     }
     for (unsigned r = 1; r <= rounds; ++r) {
         Substitution(c);
         c =  MultiplyWithGF2Matrix(LinMatrices[r-1], c);
-        for (int l = 0; l < len; l++)  {
-            c[l] = op->XOR(c[l], roundconstants[r-1]);
-            c[l] = op->XOR(c[l], roundkeys[r]);
+        for (int i = 0; i < blocksize; i++)  {
+            c[i] = op->XOR(c[i], roundconstants[r-1][i]);
+            c[i] = op->XOR(c[i], roundkeys[r][i]);
         }
     }
     return c;
@@ -29,7 +29,7 @@ void LowMC_bool::set_key (keyblock k, int party) {
     keyschedule();
 }
 
-void LowMC_bool::set_key (secret_keyblock k) {
+void LowMC_bool::set_key (secret_keyblock_bool k) {
     key = k;
     keyschedule();
 }
@@ -38,22 +38,21 @@ void LowMC_bool::set_key (secret_keyblock k) {
 // LowMC_bool private functions //
 /////////////////////////////
 
-void LowMC_bool::Substitution (std::vector<secret_block> &message) {
+void LowMC_bool::Substitution (secret_block_bool &message) {
     for (unsigned i = 0; i < numofboxes; ++i) {
         Sbox(message, 3*i); 
     }
 }
 
-std::vector<secret_block> LowMC_bool::MultiplyWithGF2Matrix
-        (const std::vector<block> &matrix, const std::vector<secret_block> &message) {
+secret_block_bool LowMC_bool::MultiplyWithGF2Matrix
+        (const std::vector<block> &matrix, const secret_block_bool message) {
     size_t len = message.size();
-    std::vector<secret_block> res(len, BoolArray(sci::PUBLIC, blocksize));
+    secret_block_bool res;
     for (unsigned i = 0; i < blocksize; ++i) {
+        res[i] = BoolArray(sci::PUBLIC, nvals);
         for (unsigned j = 0; j < blocksize; ++j) {
             if (matrix[i][j]) {
-                for (unsigned l = 0; l < len; ++l) {
-                    res[l][i] = res[l][i] ^ message[l][j];
-                }
+                res[i] = op->XOR(res[i], message[j]);
             }
         }
     }
@@ -61,13 +60,14 @@ std::vector<secret_block> LowMC_bool::MultiplyWithGF2Matrix
 }
 
 
-secret_block LowMC_bool::MultiplyWithGF2Matrix_Key
-        (const std::vector<keyblock> &matrix, const secret_keyblock k) {
-    secret_block res(sci::PUBLIC, blocksize);
+secret_block_bool LowMC_bool::MultiplyWithGF2Matrix_Key
+        (const std::vector<keyblock> &matrix, const secret_keyblock_bool k) {
+    secret_block_bool res;
     for (unsigned i = 0; i < blocksize; ++i) {
-        for (unsigned j = 0; j < blocksize; ++j) {
+        res[i] = BoolArray(sci::PUBLIC, nvals);
+        for (unsigned j = 0; j < keysize; ++j) {
             if (matrix[i][j]) {
-                res[i] = res[i] ^ k[j];
+                res[i] = op->XOR(res[i], k[j]);
             }
         }
     }
@@ -103,7 +103,7 @@ void LowMC_bool::instantiate_LowMC_bool () {
     // Create roundconstants
     roundconstants.clear();
     for (unsigned r = 0; r < rounds; ++r) {
-        roundconstants.push_back( share(getrandblock (), op) );
+        roundconstants.push_back( share(getrandblock (), op, nvals) );
     }
 
     // Create KeyMatrices
