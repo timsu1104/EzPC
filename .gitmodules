@@ -4,3 +4,6 @@
 [submodule "CrypTFlow2/extern/eigen"]
 	path = SCI/extern/eigen
 	url = https://gitlab.com/libeigen/eigen
+[submodule "SCI/extern/batchpir"]
+	path = SCI/tests/GC/batchpir
+	url = https://github.com/timsu1104/LUT-PIRANA.git
