@@ -66,5 +66,10 @@ CompResultType sort(IntegerArray& data, std::vector<int>& plain_key, int size, i
   data = wrapper[0];
   return result;
 }
+CompResultType sort(std::vector<int>& plain_key, int size, int party, bool record, bool acc) {
+  std::vector<IntegerArray> wrapper;
+  auto result = sort(wrapper, plain_key, size, party, record, acc);
+  return result;
+}
 
 } // namespace sci

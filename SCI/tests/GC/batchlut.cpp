@@ -63,7 +63,9 @@ void test_lut() {
 	io_gc->start_record("BatchLUT");
 
 	// Deduplication
+	io_gc->start_record("Deduplicate");
 	auto context = deduplicate(secret_queries, config);
+	io_gc->end_record("Deduplicate");
 
 	// Initialize server and client
 	if (party == ALICE) {
@@ -75,6 +77,7 @@ void test_lut() {
 	}
 
 	// prepare batch
+	io_gc->start_record("Batch Preparation");
     vector<vector<string>> batch(batch_size, vector<string>(w));
 	vector<sci::LowMC> ciphers_2PC;
 	for (int hash_idx = 0; hash_idx < w; hash_idx++) {
@@ -107,6 +110,7 @@ void test_lut() {
 			batch[i][hash_idx] = hash_out.to_string();
 		}
 	}
+	io_gc->end_record("Batch Preparation");
 
 	vector<IntegerArray> A_index(w, IntegerArray(num_bucket));
 	vector<IntegerArray> A_entry(w, IntegerArray(num_bucket));
@@ -116,6 +120,7 @@ void test_lut() {
 	vector<IntegerArray> entry(w, IntegerArray(num_bucket));
 
 	// PIR
+	io_gc->start_record("PIR");
 	if (party == BOB) {
 		auto queries = batch_client->create_queries(batch);
 		auto query_buffer = batch_client->serialize_query(queries);
@@ -153,9 +158,13 @@ void test_lut() {
 
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-				auto [index, entry] = utils::split<DatabaseConstants::InputLength>(decode_responses[bucket_idx][hash_idx]);
 				A_index[hash_idx][bucket_idx] = Integer(bitlength+1, 0, ALICE);
 				A_entry[hash_idx][bucket_idx] = Integer(bitlength, 0, ALICE);
+			}
+		}
+		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
+				auto [index, entry] = utils::split<DatabaseConstants::InputLength>(decode_responses[bucket_idx][hash_idx]);
 				B_index[hash_idx][bucket_idx] = Integer(bitlength+1, index.to_ullong(), BOB);
 				B_entry[hash_idx][bucket_idx] = Integer(bitlength, entry.to_ullong(), BOB);
 			}
@@ -197,20 +206,29 @@ void test_lut() {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
 				A_index[hash_idx][bucket_idx] = Integer(bitlength+1, batch_server->index_masks[hash_idx][bucket_idx].to_ullong(), ALICE);
 				A_entry[hash_idx][bucket_idx] = Integer(bitlength, batch_server->entry_masks[hash_idx][bucket_idx].to_ullong(), ALICE);
+			}
+		}
+		
+		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
 				B_index[hash_idx][bucket_idx] = Integer(bitlength+1, 0, BOB);
 				B_entry[hash_idx][bucket_idx] = Integer(bitlength, 0, BOB);
 			}
 		}
 	}
+	io_gc->end_record("PIR");
 
+	io_gc->start_record("Share recovery");
 	for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			index[hash_idx][bucket_idx] = A_index[hash_idx][bucket_idx] ^ B_index[hash_idx][bucket_idx];
 			entry[hash_idx][bucket_idx] = A_entry[hash_idx][bucket_idx] ^ B_entry[hash_idx][bucket_idx];
 		}
 	}
+	io_gc->end_record("Share recovery");
 
 	// Collect result
+	io_gc->start_record("Result Collection");
 	auto zero_index = Integer(bitlength+1, 0);
 	secret_queries.resize(num_bucket, zero_index);
 	vector<int> sort_reference(num_bucket, 0);
@@ -229,7 +247,8 @@ void test_lut() {
 		}
 	}
 
-	auto sort_res = sort(secret_queries, sort_reference, num_bucket, BOB);
+	auto sort_res = sort(sort_reference, num_bucket, BOB);
+	permute(sort_res, secret_queries);
 
 	auto zero_entry = Integer(bitlength, 0);
 	IntegerArray result(num_bucket, zero_entry);
@@ -240,10 +259,13 @@ void test_lut() {
 			result[bucket_idx] = result[bucket_idx] ^ If(selected_query == index[hash_idx][bucket_idx], entry[hash_idx][bucket_idx], zero_entry);
 		}
 	}
+	io_gc->end_record("Result Collection");
 
 	// Remapping
+	io_gc->start_record("Remapping");
 	permute(sort_res, result, true);
 	remap(result, context);
+	io_gc->end_record("Remapping");
 
 	io_gc->end_record("BatchLUT");
 

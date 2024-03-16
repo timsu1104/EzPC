@@ -124,6 +124,7 @@ CompResultType sort(std::vector<IntegerArray>& data, int size, bool record = tru
 CompResultType sort(IntegerArray& data, int size, bool record = true, Bit acc = true);
 CompResultType sort(std::vector<IntegerArray>& data, std::vector<int>& plain_key, int size, int party = PUBLIC, bool record = true, bool acc = true);
 CompResultType sort(IntegerArray& data, std::vector<int>& plain_key, int size, int party = PUBLIC, bool record = true, bool acc = true);
+CompResultType sort(std::vector<int>& plain_key, int size, int party = PUBLIC, bool record = true, bool acc = true);
 
 } // namespace sci
 #endif

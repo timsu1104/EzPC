@@ -37,6 +37,7 @@ void test_deduplication() {
 	
 	cout << BLUE << "Deduplication" << RESET << endl;
     auto comm_start = io_gc->counter;
+	auto round_start = io_gc->num_rounds;
 	auto time_start = clock_start();
 	
 	auto context = deduplicate(shrin, config);
@@ -44,6 +45,7 @@ void test_deduplication() {
 	auto time_span = time_from(time_start);
     cout << "elapsed " << time_span / 1000 << " ms." << endl;
     cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
+    cout << "took " << (io_gc->num_rounds - round_start) << " rounds. " << endl;
 
 	// Verify
 	std::set<int32_t> s;
@@ -80,6 +82,7 @@ void test_deduplication() {
 
 	cout << BLUE << "Remapping" << RESET << endl;
 	comm_start = io_gc->counter;
+	round_start = io_gc->num_rounds;
 	time_start = clock_start();
 	
 	sort(resp, cuckoo_map, resp.size());
@@ -88,6 +91,7 @@ void test_deduplication() {
 	time_span = time_from(time_start);
     cout << "elapsed " << time_span / 1000 << " ms." << endl;
     cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
+    cout << "took " << (io_gc->num_rounds - round_start) << " rounds. " << endl;
 
 	for(int i = 0; i < batch_size; ++i) {
 		auto result = resp[i].reveal<int32_t>();
