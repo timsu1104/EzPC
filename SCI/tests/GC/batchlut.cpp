@@ -22,7 +22,7 @@ const int client_id = 0;
 void test_lut() {
 	
 	BatchPirParams params(batch_size, db_size, bitlength / 4);
-    params.print_params();
+    // params.print_params();
 
 	BatchLUTConfig config{
 		batch_size, 
@@ -32,7 +32,6 @@ void test_lut() {
 	};
 
 	// preparing queries
-	// TODO: generate secret queries
     vector<uint64_t> plain_queries(batch_size);
     vector<Integer> secret_queries(batch_size);
 	vector<uint64_t> lut(db_size);
@@ -50,29 +49,33 @@ void test_lut() {
 	}
 
 	auto generator = [lut](size_t i){return rawdatablock(lut.at(i)); };
-
-	cout << BLUE << "BatchLUT" << RESET << endl;
-    auto comm_start = io_gc->counter;
-	auto time_start = clock_start();
-
-	auto context = deduplicate(secret_queries, config);
 	
 	BatchPIRServer* batch_server; 
 	BatchPIRClient* batch_client;
 
 	// ALICE: server
-	// Bob: client
+	// BOB: client
 	int w = params.get_num_hash_funcs();
 	int num_bucket = params.get_num_buckets();
 	int bucket_size = params.get_bucket_size();
 
-    vector<vector<string>> batch(batch_size, vector<string>(w));
-	
+	cout << BLUE << "BatchLUT" << RESET << endl;
+	io_gc->start_record("BatchLUT");
+
+	// Deduplication
+	auto context = deduplicate(secret_queries, config);
+
+	// Initialize server and client
 	if (party == ALICE) {
 		batch_server = new BatchPIRServer(params);
 		batch_server->populate_raw_db(generator);
 		batch_server->initialize();
+	} else {
+		batch_client = new BatchPIRClient(params);
 	}
+
+	// prepare batch
+    vector<vector<string>> batch(batch_size, vector<string>(w));
 	vector<sci::LowMC> ciphers_2PC;
 	for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 		keyblock key = party == ALICE ? batch_server->ciphers[hash_idx].get_key() : 0;
@@ -112,8 +115,8 @@ void test_lut() {
 	vector<IntegerArray> index(w, IntegerArray(num_bucket));
 	vector<IntegerArray> entry(w, IntegerArray(num_bucket));
 
+	// PIR
 	if (party == BOB) {
-		batch_client = new BatchPIRClient(params);
 		auto queries = batch_client->create_queries(batch);
 		auto query_buffer = batch_client->serialize_query(queries);
 		auto [glk_buffer, rlk_buffer] = batch_client->get_public_keys();
@@ -147,15 +150,6 @@ void test_lut() {
 		}
 		auto responses = batch_client->deserialize_response(response_buffer);
 		auto decode_responses = batch_client->decode_responses(responses);
-		
-		// assert (batch_client->cuckoo_map.size() == batch_size);
-		// for (const auto [k, v] : batch_client->cuckoo_map) {
-		// 	io_gc->send_data(&k, sizeof(k));
-		// 	io_gc->send_data(&v, sizeof(v));
-		// }
-		// for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-		// 	io_gc->send_data(decode_responses[bucket_idx].data(), w * sizeof(std::bitset<datablock_size>));
-		// }
 
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
@@ -166,7 +160,6 @@ void test_lut() {
 				B_entry[hash_idx][bucket_idx] = Integer(bitlength, entry.to_ullong(), BOB);
 			}
 		}
-
 	} else {
 		uint32_t glk_size, rlk_size;
 		io_gc->recv_data(&glk_size, sizeof(uint32_t));
@@ -199,24 +192,6 @@ void test_lut() {
 				io_gc->send_data(response_buffer[i][j].data(), buf_size);
             }
         }
-
-		// vector<EncodedDB> decode_responses(num_bucket);
-		// std::unordered_map<uint64_t, uint64_t> cuckoo_map;
-		// for (int i = 0; i < batch_size; i ++) {
-		// 	uint64_t k, v;
-		// 	io_gc->recv_data(&k, sizeof(k));
-		// 	io_gc->recv_data(&v, sizeof(v));
-		// 	cuckoo_map[k] = v;
-		// }
-		// for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-		// 	decode_responses[bucket_idx].resize(w);
-		// 	io_gc->recv_data(decode_responses[bucket_idx].data(), w * sizeof(std::bitset<datablock_size>));
-		// }
-
-		// if (batch_server->check_decoded_entries(decode_responses, plain_queries_rawdata, cuckoo_map))
-		// {
-		// 	cout << "Main: All the entries matched for example !!" << endl;
-		// }
 		
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
@@ -235,46 +210,20 @@ void test_lut() {
 		}
 	}
 
-	// cout << "verifying pir" << endl;
-	// vector<vector<uint64_t>> plain_index(w, vector<uint64_t>(num_bucket));
-	// vector<vector<uint64_t>> plain_entry(w, vector<uint64_t>(num_bucket));
-	// for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-	// 	for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-	// 		assert (index[hash_idx][bucket_idx].size() == bitlength + 1);
-	// 		assert (entry[hash_idx][bucket_idx].size() == bitlength);
-	// 		plain_index[hash_idx][bucket_idx] = index[hash_idx][bucket_idx].reveal<uint64_t>();
-	// 		plain_entry[hash_idx][bucket_idx] = entry[hash_idx][bucket_idx].reveal<uint64_t>();
-	// 	}
-	// }
-	// if (party == BOB) {
-	// 	assert (batch_client->cuckoo_map.size() == batch_size);
-	// 	for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-	// 		if (batch_client->cuckoo_map.count(bucket_idx) && plain_queries[batch_client->cuckoo_map.at(bucket_idx)] < db_size) {
-	// 			int count = 0;
-	// 			for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-	// 				if (plain_index[hash_idx][bucket_idx] == plain_queries[batch_client->cuckoo_map.at(bucket_idx)] && plain_entry[hash_idx][bucket_idx] == lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)])) {
-	// 					count ++;
-	// 				}
-	// 			} 
-	// 			utils::check(count == 1, "Multiple matches found for the same query");
-	// 		}
-	// 	}
-	// }
-
+	// Collect result
 	auto zero_index = Integer(bitlength+1, 0);
-
 	secret_queries.resize(num_bucket, zero_index);
 	vector<int> sort_reference(num_bucket, 0);
 	if (party == BOB) {
 		set<int> dummy_buckets;
 		for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
-			dummy_buckets.insert(bucket_idx);
-		}
-		for (int i = 0; i < batch_size; i++) {
-			sort_reference[i] = batch_client->inv_cuckoo_map[i];
-			dummy_buckets.erase(batch_client->inv_cuckoo_map[i]);
+			if (batch_client->cuckoo_map.count(bucket_idx) == 0)
+				dummy_buckets.insert(bucket_idx);
 		}
 		vector<int> dummies(dummy_buckets.begin(), dummy_buckets.end());
+		for (int i = 0; i < batch_size; i++) {
+			sort_reference[i] = batch_client->inv_cuckoo_map[i];
+		}
 		for (int i = batch_size; i < num_bucket; i++) {
 			sort_reference[i] = dummies[i - batch_size];
 		}
@@ -286,43 +235,17 @@ void test_lut() {
 	IntegerArray result(num_bucket, zero_entry);
 	for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
 		auto selected_query = secret_queries[bucket_idx];
-		assert (selected_query.size() == bitlength +1);
-
-		// auto plain_query = selected_query.reveal<uint64_t>(BOB);
-		// if (party == BOB && batch_client->cuckoo_map.count(bucket_idx)) {
-		// 	utils::check(
-		// 		plain_query == plain_queries[batch_client->cuckoo_map[bucket_idx]], 
-		// 		fmt::format("Query mismatch: {} != {}", plain_query, plain_queries[batch_client->cuckoo_map[bucket_idx]])
-		// 	);
-		// }
 		
 		for (int hash_idx = 0; hash_idx < w; ++hash_idx) {
 			result[bucket_idx] = result[bucket_idx] ^ If(selected_query == index[hash_idx][bucket_idx], entry[hash_idx][bucket_idx], zero_entry);
 		}
 	}
 
-	// vector<uint64_t> plain_result(num_bucket);
-	// for (int i = 0; i < num_bucket; i++) {
-	// 	plain_result[i] = result[i].reveal<uint64_t>(PUBLIC);
-	// }
-	// if (party == BOB) {
-	// 	assert (batch_client->cuckoo_map.size() == batch_size);
-	// 	for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
-	// 		if (batch_client->cuckoo_map.count(bucket_idx) && plain_queries[batch_client->cuckoo_map.at(bucket_idx)] < db_size) {
-	// 			utils::check(
-	// 				plain_result[bucket_idx] == lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)]), 
-	// 				fmt::format("[BatchLUT] Test failed. T[{}]={}, but we get {}. ", plain_queries[batch_client->cuckoo_map.at(bucket_idx)], lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)]), plain_result[bucket_idx])
-	// 			);
-	// 		}
-	// 	}
-	// }
-
+	// Remapping
 	permute(sort_res, result, true);
 	remap(result, context);
 
-	auto time_span = time_from(time_start);
-    cout << "elapsed " << time_span / 1000 << " ms." << endl;
-    cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
+	io_gc->end_record("BatchLUT");
 
 	// Verify
 	vector<uint64_t> plain_result(batch_size);
