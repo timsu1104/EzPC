@@ -14,14 +14,14 @@ using std::cout, std::endl, std::vector;
 int party, port = 8000, batch_size = 256;
 int db_size = (1 << 16);
 int bitlength = 16;
-int w = 3;
+int parallel = 1;
 NetIO *io_gc;
 
 const int client_id = 0;
 
 void test_lut() {
 	
-	BatchPirParams params(batch_size, db_size, bitlength / 4);
+	BatchPirParams params(batch_size, db_size, bitlength / 4, parallel);
     // params.print_params();
 
 	BatchLUTConfig config{
@@ -291,6 +291,7 @@ int main(int argc, char **argv) {
 	amap.arg("r", party, "Role of party: ALICE = 1; BOB = 2");
 	amap.arg("p", port, "Port Number");
 	amap.arg("s", batch_size, "number of total elements");
+	amap.arg("par", parallel, "parallel flag: 1 = parallel; 0 = sequential");
 	amap.parse(argc, argv);
 	io_gc = new NetIO(party == ALICE ? nullptr : "127.0.0.1",
 						port + GC_PORT_OFFSET, true);
