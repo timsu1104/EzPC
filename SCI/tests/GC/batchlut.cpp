@@ -20,21 +20,33 @@ NetIO *io_gc;
 const int client_id = 0;
 
 void test_lut() {
+	
+	BatchPirParams params(batch_size, db_size, bitlength / 4);
+    params.print_params();
+
+	BatchLUTConfig config{
+		batch_size, 
+		(int)params.get_bucket_size(), 
+		db_size, 
+		bitlength + 1
+	};
 
 	// preparing queries
 	// TODO: generate secret queries
-    vector<uint32_t> plain_queries(batch_size);
-    // vector<rawdatablock> plain_queries_rawdata(batch_size);
+    vector<uint64_t> plain_queries(batch_size);
     vector<Integer> secret_queries(batch_size);
-	vector<uint32_t> lut(db_size);
+	vector<uint64_t> lut(db_size);
     for (int i = 0; i < batch_size; i++) {
-        plain_queries[i] = i;
-		// plain_queries_rawdata[i] = rawdatablock(plain_queries[i]);
-		secret_queries[i] = Integer(bitlength, plain_queries[i], BOB);
+        plain_queries[i] = rand() % (batch_size / 2);
+		secret_queries[i] = Integer(bitlength + 1, plain_queries[i], BOB);
 	}
-
 	for (int i = 0; i < db_size; i ++) {
 		lut[i] = rand() % db_size;
+	}
+
+    vector<rawinputblock> plain_queries_rawdata(batch_size);
+    for (int i = 0; i < batch_size; i++) {
+		plain_queries_rawdata[i] = rawinputblock(plain_queries[i]);
 	}
 
 	auto generator = [lut](size_t i){return rawdatablock(lut.at(i)); };
@@ -42,9 +54,9 @@ void test_lut() {
 	cout << BLUE << "BatchLUT" << RESET << endl;
     auto comm_start = io_gc->counter;
 	auto time_start = clock_start();
+
+	auto context = deduplicate(secret_queries, config);
 	
-	BatchPirParams params(batch_size, db_size, bitlength / 4);
-    params.print_params();
 	BatchPIRServer* batch_server; 
 	BatchPIRClient* batch_client;
 
@@ -52,6 +64,7 @@ void test_lut() {
 	// Bob: client
 	int w = params.get_num_hash_funcs();
 	int num_bucket = params.get_num_buckets();
+	int bucket_size = params.get_bucket_size();
 
     vector<vector<string>> batch(batch_size, vector<string>(w));
 	
@@ -71,8 +84,8 @@ void test_lut() {
 		for (int j = 0; j < sci::blocksize; j++) {
 			m[hash_idx][j] = Integer(batch_size, 0, PUBLIC);
 			for (int i = 0; i < batch_size; i++) {
-				if (j >= bitlength) {
-					bool value = (party == ALICE) ? batch_server->ciphers[hash_idx].prefix[j-bitlength] : 0;
+				if (j >= bitlength+1) {
+					bool value = (party == ALICE) ? batch_server->ciphers[hash_idx].prefix[j-bitlength-1] : 0;
 					m[hash_idx][j][i] = Bit(value, ALICE);
 				} else {
 					m[hash_idx][j][i] = secret_queries[i][j];
@@ -146,10 +159,10 @@ void test_lut() {
 
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-				auto [index, entry] = utils::split<DatabaseConstants::OutputLength>(decode_responses[bucket_idx][hash_idx]);
-				A_index[hash_idx][bucket_idx] = Integer(bitlength, 0, ALICE);
+				auto [index, entry] = utils::split<DatabaseConstants::InputLength>(decode_responses[bucket_idx][hash_idx]);
+				A_index[hash_idx][bucket_idx] = Integer(bitlength+1, 0, ALICE);
 				A_entry[hash_idx][bucket_idx] = Integer(bitlength, 0, ALICE);
-				B_index[hash_idx][bucket_idx] = Integer(bitlength, index.to_ullong(), BOB);
+				B_index[hash_idx][bucket_idx] = Integer(bitlength+1, index.to_ullong(), BOB);
 				B_entry[hash_idx][bucket_idx] = Integer(bitlength, entry.to_ullong(), BOB);
 			}
 		}
@@ -207,9 +220,9 @@ void test_lut() {
 		
 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 			for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-				A_index[hash_idx][bucket_idx] = Integer(bitlength, batch_server->index_masks[hash_idx][bucket_idx].to_ullong(), ALICE);
+				A_index[hash_idx][bucket_idx] = Integer(bitlength+1, batch_server->index_masks[hash_idx][bucket_idx].to_ullong(), ALICE);
 				A_entry[hash_idx][bucket_idx] = Integer(bitlength, batch_server->entry_masks[hash_idx][bucket_idx].to_ullong(), ALICE);
-				B_index[hash_idx][bucket_idx] = Integer(bitlength, 0, BOB);
+				B_index[hash_idx][bucket_idx] = Integer(bitlength+1, 0, BOB);
 				B_entry[hash_idx][bucket_idx] = Integer(bitlength, 0, BOB);
 			}
 		}
@@ -223,28 +236,34 @@ void test_lut() {
 	}
 
 	// cout << "verifying pir" << endl;
-	// vector<vector<uint32_t>> plain_index(w, vector<uint32_t>(num_bucket));
-	// vector<vector<uint32_t>> plain_entry(w, vector<uint32_t>(num_bucket));
+	// vector<vector<uint64_t>> plain_index(w, vector<uint64_t>(num_bucket));
+	// vector<vector<uint64_t>> plain_entry(w, vector<uint64_t>(num_bucket));
 	// for (int hash_idx = 0; hash_idx < w; hash_idx++) {
 	// 	for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-	// 		plain_index[hash_idx][bucket_idx] = index[hash_idx][bucket_idx].reveal<uint32_t>(ALICE);
-	// 		plain_entry[hash_idx][bucket_idx] = entry[hash_idx][bucket_idx].reveal<uint32_t>(ALICE);
+	// 		assert (index[hash_idx][bucket_idx].size() == bitlength + 1);
+	// 		assert (entry[hash_idx][bucket_idx].size() == bitlength);
+	// 		plain_index[hash_idx][bucket_idx] = index[hash_idx][bucket_idx].reveal<uint64_t>();
+	// 		plain_entry[hash_idx][bucket_idx] = entry[hash_idx][bucket_idx].reveal<uint64_t>();
 	// 	}
 	// }
 	// if (party == BOB) {
+	// 	assert (batch_client->cuckoo_map.size() == batch_size);
 	// 	for (int bucket_idx = 0; bucket_idx < num_bucket; bucket_idx++) {
-	// 		for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-	// 			if (batch_client->cuckoo_map.count(bucket_idx) && lut[plain_index[hash_idx][bucket_idx]] != plain_entry[hash_idx][bucket_idx]) {
-	// 				cout << RED << fmt::format("[Plaintext] Test failed. T[{}]={}, but we get {}. ", plain_index[hash_idx][bucket_idx], lut[plain_index[hash_idx][bucket_idx]], plain_entry[hash_idx][bucket_idx]) << RESET << endl;
-	// 			}
+	// 		if (batch_client->cuckoo_map.count(bucket_idx) && plain_queries[batch_client->cuckoo_map.at(bucket_idx)] < db_size) {
+	// 			int count = 0;
+	// 			for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+	// 				if (plain_index[hash_idx][bucket_idx] == plain_queries[batch_client->cuckoo_map.at(bucket_idx)] && plain_entry[hash_idx][bucket_idx] == lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)])) {
+	// 					count ++;
+	// 				}
+	// 			} 
+	// 			utils::check(count == 1, "Multiple matches found for the same query");
 	// 		}
 	// 	}
 	// }
 
-	auto zero = Integer(bitlength, 0);
-	IntegerArray result(num_bucket, zero);
+	auto zero_index = Integer(bitlength+1, 0);
 
-	secret_queries.resize(num_bucket, zero);
+	secret_queries.resize(num_bucket, zero_index);
 	vector<int> sort_reference(num_bucket, 0);
 	if (party == BOB) {
 		set<int> dummy_buckets;
@@ -263,36 +282,58 @@ void test_lut() {
 
 	auto sort_res = sort(secret_queries, sort_reference, num_bucket, BOB);
 
+	auto zero_entry = Integer(bitlength, 0);
+	IntegerArray result(num_bucket, zero_entry);
 	for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
 		auto selected_query = secret_queries[bucket_idx];
+		assert (selected_query.size() == bitlength +1);
 
-		// auto plain_query = selected_query.reveal<uint32_t>(BOB);
+		// auto plain_query = selected_query.reveal<uint64_t>(BOB);
 		// if (party == BOB && batch_client->cuckoo_map.count(bucket_idx)) {
-		// 	if (plain_query != plain_queries[batch_client->cuckoo_map[bucket_idx]]) {
-		// 		cerr << fmt::format("{} != {}", plain_query, plain_queries[batch_client->cuckoo_map[bucket_idx]]) << endl;
-		// 	}
+		// 	utils::check(
+		// 		plain_query == plain_queries[batch_client->cuckoo_map[bucket_idx]], 
+		// 		fmt::format("Query mismatch: {} != {}", plain_query, plain_queries[batch_client->cuckoo_map[bucket_idx]])
+		// 	);
 		// }
 		
 		for (int hash_idx = 0; hash_idx < w; ++hash_idx) {
-			result[bucket_idx] = result[bucket_idx] ^ If(selected_query == index[hash_idx][bucket_idx], entry[hash_idx][bucket_idx], zero);
+			result[bucket_idx] = result[bucket_idx] ^ If(selected_query == index[hash_idx][bucket_idx], entry[hash_idx][bucket_idx], zero_entry);
 		}
 	}
+
+	// vector<uint64_t> plain_result(num_bucket);
+	// for (int i = 0; i < num_bucket; i++) {
+	// 	plain_result[i] = result[i].reveal<uint64_t>(PUBLIC);
+	// }
+	// if (party == BOB) {
+	// 	assert (batch_client->cuckoo_map.size() == batch_size);
+	// 	for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
+	// 		if (batch_client->cuckoo_map.count(bucket_idx) && plain_queries[batch_client->cuckoo_map.at(bucket_idx)] < db_size) {
+	// 			utils::check(
+	// 				plain_result[bucket_idx] == lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)]), 
+	// 				fmt::format("[BatchLUT] Test failed. T[{}]={}, but we get {}. ", plain_queries[batch_client->cuckoo_map.at(bucket_idx)], lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)]), plain_result[bucket_idx])
+	// 			);
+	// 		}
+	// 	}
+	// }
+
+	permute(sort_res, result, true);
+	remap(result, context);
 
 	auto time_span = time_from(time_start);
     cout << "elapsed " << time_span / 1000 << " ms." << endl;
     cout << "sent " << (io_gc->counter - comm_start) / (1.0 * (1ULL << 20)) << " MB" << endl;
 
 	// Verify
-	vector<uint32_t> plain_result(num_bucket);
-	for (int i = 0; i < num_bucket; i++) {
-		plain_result[i] = result[i].reveal<uint32_t>(PUBLIC);
+	vector<uint64_t> plain_result(batch_size);
+	for (int i = 0; i < batch_size; i++) {
+		plain_result[i] = result[i].reveal<uint64_t>();
 	}
-	if (party == BOB) {
-		for(int bucket_idx = 0; bucket_idx < num_bucket; ++bucket_idx) {
-			if (batch_client->cuckoo_map.count(bucket_idx) && plain_result[bucket_idx] != lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)])) {
-				cout << RED << fmt::format("[BatchLUT] Test failed. T[{}]={}, but we get {}. ", plain_queries[batch_client->cuckoo_map.at(bucket_idx)], lut.at(plain_queries[batch_client->cuckoo_map.at(bucket_idx)]), plain_result[bucket_idx]) << RESET << endl;
-			}
-		}
+	for(int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+		utils::check(
+			plain_result[batch_idx] == lut.at(plain_queries[batch_idx]), 
+			fmt::format("[BatchLUT] Test failed. T[{}]={}, but we get {}. ", plain_queries[batch_idx], lut.at(plain_queries[batch_idx]), plain_result[batch_idx])
+		);
 	}
 
 	cout << GREEN << "[BatchLUT] Test passed" << RESET << endl;
@@ -305,7 +346,6 @@ int main(int argc, char **argv) {
 	amap.arg("r", party, "Role of party: ALICE = 1; BOB = 2");
 	amap.arg("p", port, "Port Number");
 	amap.arg("s", batch_size, "number of total elements");
-	amap.arg("l", bitlength, "bitlength of inputs");
 	amap.parse(argc, argv);
 	io_gc = new NetIO(party == ALICE ? nullptr : "127.0.0.1",
 						port + GC_PORT_OFFSET, true);

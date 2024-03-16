@@ -50,7 +50,7 @@ DedupContext deduplicate(IntegerArray& in, BatchLUTConfig config);
 // Integer* remap_obselete(Integer* in, Integer* inDeduplicated, Integer* resp, int b, int B, int N, int bitlength, int* cuckoo_map, Integer* constantArray);
 
 // cuckoo map: [0, b) -> [0, B), -1
-void remap(IntegerArray& resp, std::vector<int> cuckoo_map, DedupContext& context);
+void remap(IntegerArray& resp, DedupContext& context);
 
 } // namespace sci
 #endif

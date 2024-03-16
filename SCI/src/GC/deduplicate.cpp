@@ -30,11 +30,9 @@ DedupContext deduplicate(IntegerArray& in, BatchLUTConfig config) {
   };
 }
 
-void remap(IntegerArray& resp, std::vector<int> cuckoo_map, DedupContext& context) {
+void remap(IntegerArray& resp, DedupContext& context) {
 
   auto config = context.config;
-
-  sort(resp, cuckoo_map, resp.size());
 
   for (int i = 1; i < config.batch_size; i++) {
     resp[i] = If(context.label[i], resp[i-1], resp[i]);

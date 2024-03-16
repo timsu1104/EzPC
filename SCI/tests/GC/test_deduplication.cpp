@@ -82,7 +82,8 @@ void test_deduplication() {
 	comm_start = io_gc->counter;
 	time_start = clock_start();
 	
-	remap(resp, cuckoo_map, context);
+	sort(resp, cuckoo_map, resp.size());
+	remap(resp, context);
 
 	time_span = time_from(time_start);
     cout << "elapsed " << time_span / 1000 << " ms." << endl;
